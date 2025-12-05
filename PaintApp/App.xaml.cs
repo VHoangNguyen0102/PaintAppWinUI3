@@ -51,6 +51,9 @@ namespace PaintApp
             {
                 options.UseSqlite("Data Source=paintapp.db");
             });
+            
+            services.AddTransient<ViewModels.HomePageViewModel>();
+            
             services.AddTransient<MainWindow>();
         }
 
