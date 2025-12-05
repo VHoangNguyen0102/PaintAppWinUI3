@@ -53,6 +53,7 @@ namespace PaintApp
             });
             
             services.AddTransient<ViewModels.HomePageViewModel>();
+            services.AddTransient<ViewModels.ManagePageViewModel>();
             
             services.AddTransient<MainWindow>();
         }
