@@ -41,6 +41,8 @@ namespace PaintApp
             var services = new ServiceCollection();
             ConfigureServices(services);
             ServiceProvider = services.BuildServiceProvider();
+            
+            InitializeDatabase();
         }
 
         private void ConfigureServices(IServiceCollection services)
@@ -50,6 +52,13 @@ namespace PaintApp
                 options.UseSqlite("Data Source=paintapp.db");
             });
             services.AddTransient<MainWindow>();
+        }
+
+        private void InitializeDatabase()
+        {
+            using var scope = ServiceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.Database.Migrate();
         }
 
         /// <summary>
