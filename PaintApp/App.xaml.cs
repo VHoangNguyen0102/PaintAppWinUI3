@@ -16,6 +16,8 @@ using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using PaintApp.Data;
 
 namespace PaintApp
 {
@@ -43,6 +45,10 @@ namespace PaintApp
 
         private void ConfigureServices(IServiceCollection services)
         {
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseSqlite("Data Source=paintapp.db");
+            });
             services.AddTransient<MainWindow>();
         }
 

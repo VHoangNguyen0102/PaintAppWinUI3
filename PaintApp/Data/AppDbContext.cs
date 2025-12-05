@@ -7,9 +7,8 @@ public class AppDbContext : DbContext
 {
     public DbSet<Profile> Profiles { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
-        optionsBuilder.UseSqlite("Data Source=paintapp.db");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
