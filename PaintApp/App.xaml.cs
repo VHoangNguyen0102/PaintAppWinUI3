@@ -15,9 +15,7 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PaintApp
 {
@@ -28,6 +26,8 @@ namespace PaintApp
     {
         private Window? _window;
 
+        public static IServiceProvider ServiceProvider { get; private set; } = null!;
+
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -35,6 +35,15 @@ namespace PaintApp
         public App()
         {
             InitializeComponent();
+            
+            var services = new ServiceCollection();
+            ConfigureServices(services);
+            ServiceProvider = services.BuildServiceProvider();
+        }
+
+        private void ConfigureServices(IServiceCollection services)
+        {
+            services.AddTransient<MainWindow>();
         }
 
         /// <summary>
@@ -43,7 +52,7 @@ namespace PaintApp
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            _window = new MainWindow();
+            _window = ServiceProvider.GetRequiredService<MainWindow>();
             _window.Activate();
         }
     }
