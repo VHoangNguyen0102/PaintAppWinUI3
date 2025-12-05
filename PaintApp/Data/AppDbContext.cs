@@ -72,8 +72,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Shape>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.ShapeType).IsRequired();
+            entity.Property(e => e.Type).IsRequired();
+            entity.Property(e => e.GeometryData).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
+            entity.Property(e => e.IsTemplate).HasDefaultValue(false);
+            entity.Property(e => e.UsageCount).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<Template>(entity =>

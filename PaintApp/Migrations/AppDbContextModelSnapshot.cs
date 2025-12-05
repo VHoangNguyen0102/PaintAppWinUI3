@@ -205,18 +205,19 @@ namespace PaintApp.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("FillColor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GeometryData")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<double>("Height")
                         .HasColumnType("REAL");
 
-                    b.Property<string>("ShapeData")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ShapeType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<bool>("IsTemplate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("StrokeColor")
                         .IsRequired()
@@ -224,6 +225,15 @@ namespace PaintApp.Migrations
 
                     b.Property<double>("StrokeThickness")
                         .HasColumnType("REAL");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UsageCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
 
                     b.Property<double>("Width")
                         .HasColumnType("REAL");
@@ -235,7 +245,7 @@ namespace PaintApp.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<int>("ZIndex")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 
