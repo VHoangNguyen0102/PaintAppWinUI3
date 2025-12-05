@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
 {
     public DbSet<Profile> Profiles { get; set; }
     public DbSet<Drawing> Drawings { get; set; }
+    public DbSet<Canvas> Canvases { get; set; }
     public DbSet<Shape> Shapes { get; set; }
     public DbSet<Template> Templates { get; set; }
     public DbSet<TemplateShape> TemplateShapes { get; set; }
@@ -31,8 +32,13 @@ public class AppDbContext : DbContext
             entity.Property(e => e.DefaultStrokeThickness).HasDefaultValue(2.0);
             entity.Property(e => e.DefaultStrokeColor).HasDefaultValue("#000000");
             entity.Property(e => e.DefaultFillColor).HasDefaultValue("#FFFFFF");
-
+            
             entity.HasMany(e => e.Drawings)
+                .WithOne(e => e.Profile)
+                .HasForeignKey(e => e.ProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasMany(e => e.Canvases)
                 .WithOne(e => e.Profile)
                 .HasForeignKey(e => e.ProfileId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -44,10 +50,22 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
             entity.Property(e => e.LastModifiedAt).HasDefaultValueSql("datetime('now')");
-
+            
             entity.HasMany(e => e.Shapes)
                 .WithOne(e => e.Drawing)
                 .HasForeignKey(e => e.DrawingId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Canvas>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
+            
+            entity.HasMany(e => e.Shapes)
+                .WithOne(e => e.Canvas)
+                .HasForeignKey(e => e.CanvasId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -63,7 +81,7 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
-
+            
             entity.HasMany(e => e.TemplateShapes)
                 .WithOne(e => e.Template)
                 .HasForeignKey(e => e.TemplateId)

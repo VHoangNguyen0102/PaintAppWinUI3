@@ -16,6 +16,44 @@ namespace PaintApp.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.10");
 
+            modelBuilder.Entity("PaintApp.Models.Canvas", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BackgroundColor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("datetime('now')");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProfileId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProfileId");
+
+                    b.ToTable("Canvases");
+                });
+
             modelBuilder.Entity("PaintApp.Models.Drawing", b =>
                 {
                     b.Property<int>("Id")
@@ -155,12 +193,15 @@ namespace PaintApp.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CanvasId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT")
                         .HasDefaultValueSql("datetime('now')");
 
-                    b.Property<int>("DrawingId")
+                    b.Property<int?>("DrawingId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("FillColor")
@@ -197,6 +238,8 @@ namespace PaintApp.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CanvasId");
 
                     b.HasIndex("DrawingId");
 
@@ -298,6 +341,17 @@ namespace PaintApp.Migrations
                     b.ToTable("TemplateShapes");
                 });
 
+            modelBuilder.Entity("PaintApp.Models.Canvas", b =>
+                {
+                    b.HasOne("PaintApp.Models.Profile", "Profile")
+                        .WithMany("Canvases")
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Profile");
+                });
+
             modelBuilder.Entity("PaintApp.Models.Drawing", b =>
                 {
                     b.HasOne("PaintApp.Models.Profile", "Profile")
@@ -311,11 +365,17 @@ namespace PaintApp.Migrations
 
             modelBuilder.Entity("PaintApp.Models.Shape", b =>
                 {
+                    b.HasOne("PaintApp.Models.Canvas", "Canvas")
+                        .WithMany("Shapes")
+                        .HasForeignKey("CanvasId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("PaintApp.Models.Drawing", "Drawing")
                         .WithMany("Shapes")
                         .HasForeignKey("DrawingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Canvas");
 
                     b.Navigation("Drawing");
                 });
@@ -331,6 +391,11 @@ namespace PaintApp.Migrations
                     b.Navigation("Template");
                 });
 
+            modelBuilder.Entity("PaintApp.Models.Canvas", b =>
+                {
+                    b.Navigation("Shapes");
+                });
+
             modelBuilder.Entity("PaintApp.Models.Drawing", b =>
                 {
                     b.Navigation("Shapes");
@@ -338,6 +403,8 @@ namespace PaintApp.Migrations
 
             modelBuilder.Entity("PaintApp.Models.Profile", b =>
                 {
+                    b.Navigation("Canvases");
+
                     b.Navigation("Drawings");
                 });
 

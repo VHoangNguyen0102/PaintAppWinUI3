@@ -19,4 +19,5 @@ public class Profile
     public string DefaultFillColor { get; set; } = "#FFFFFF";
     
     public ICollection<Drawing> Drawings { get; set; } = new List<Drawing>();
+    public ICollection<Canvas> Canvases { get; set; } = new List<Canvas>();
 }

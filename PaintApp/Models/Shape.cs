@@ -5,8 +5,10 @@ namespace PaintApp.Models;
 public class Shape
 {
     public int Id { get; set; }
-    public int DrawingId { get; set; }
-    public Drawing Drawing { get; set; } = null!;
+    public int? DrawingId { get; set; }
+    public Drawing? Drawing { get; set; }
+    public int? CanvasId { get; set; }
+    public Canvas? Canvas { get; set; }
     public string ShapeType { get; set; } = string.Empty;
     public double X { get; set; }
     public double Y { get; set; }
