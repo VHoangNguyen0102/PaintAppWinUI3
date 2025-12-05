@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Storage;
+using PaintApp.Views;
 
 namespace PaintApp
 {
@@ -31,9 +32,11 @@ namespace PaintApp
             _localSettings = ApplicationData.Current.LocalSettings;
             
             SetupCustomTitleBar();
+            SetupBackdrop();
             LoadTheme();
             
             NavView.SelectedItem = NavView.MenuItems[0];
+            ContentFrame.Navigate(typeof(HomePage));
         }
 
         private void SetupCustomTitleBar()
@@ -48,6 +51,11 @@ namespace PaintApp
                 titleBar.ButtonBackgroundColor = Colors.Transparent;
                 titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
             }
+        }
+
+        private void SetupBackdrop()
+        {
+            SystemBackdrop = new MicaBackdrop();
         }
 
         private void LoadTheme()
@@ -101,14 +109,17 @@ namespace PaintApp
             {
                 string tag = args.SelectedItemContainer.Tag?.ToString() ?? string.Empty;
                 
-                switch (tag)
+                Type? pageType = tag switch
                 {
-                    case "Home":
-                        break;
-                    case "Canvas":
-                        break;
-                    case "Profiles":
-                        break;
+                    "Home" => typeof(HomePage),
+                    "Canvas" => typeof(DrawPage),
+                    "Profiles" => typeof(ManagePage),
+                    _ => null
+                };
+
+                if (pageType != null && ContentFrame.CurrentSourcePageType != pageType)
+                {
+                    ContentFrame.Navigate(pageType);
                 }
             }
         }
