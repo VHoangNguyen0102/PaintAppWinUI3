@@ -870,4 +870,49 @@ public partial class DrawPageViewModel : ViewModelBase
             await ShowErrorDialogAsync("Delete Error", $"Failed to delete shape: {ex.Message}");
         }
     }
+
+    [RelayCommand]
+    private async Task SaveShapeToTemplateAsync()
+    {
+        if (SelectedShape == null)
+        {
+            await ShowErrorDialogAsync("Error", "No shape selected.");
+            return;
+        }
+
+        try
+        {
+            // Create a copy of the shape for template
+            var templateShape = new ShapeModel
+            {
+                Type = SelectedShape.Type,
+                GeometryData = SelectedShape.GeometryData,
+                StrokeColor = SelectedShape.StrokeColor,
+                StrokeThickness = SelectedShape.StrokeThickness,
+                FillColor = SelectedShape.FillColor,
+                X = SelectedShape.X,
+                Y = SelectedShape.Y,
+                Width = SelectedShape.Width,
+                Height = SelectedShape.Height,
+                ZIndex = 0,
+                IsTemplate = true,
+                CanvasId = null, // Detach from canvas
+                DrawingId = null,
+                CreatedAt = DateTime.Now,
+                UsageCount = 0
+            };
+
+            // Save to database
+            var savedTemplate = await _shapeService.CreateShapeAsync(templateShape);
+
+            await ShowSuccessDialogAsync("Template Saved", 
+                $"Shape '{savedTemplate.Type}' has been saved as a template!\n\n" +
+                $"You can now reuse this shape in other canvases.");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Save Template Error", 
+                $"Failed to save shape as template: {ex.Message}");
+        }
+    }
 }
