@@ -451,8 +451,35 @@ public partial class DrawPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Save()
+    private async Task SaveAsync()
     {
+        if (CurrentCanvas == null)
+        {
+            await ShowErrorDialogAsync("Save Error", "No canvas loaded to save.");
+            return;
+        }
+
+        try
+        {
+            // Update canvas timestamp
+            CurrentCanvas.UpdatedAt = DateTime.Now;
+            
+            // Save canvas to database
+            await _canvasService.UpdateCanvasAsync(CurrentCanvas);
+            
+            // Update canvas info display
+            CanvasInfo = $"{CurrentCanvas.Name} - {CurrentCanvas.Width} × {CurrentCanvas.Height} (Saved: {CurrentCanvas.UpdatedAt:HH:mm:ss})";
+            
+            await ShowSuccessDialogAsync("Canvas Saved", 
+                $"Canvas '{CurrentCanvas.Name}' has been saved successfully.\n" +
+                $"Total shapes: {Shapes.Count}\n" +
+                $"Last saved: {CurrentCanvas.UpdatedAt:HH:mm:ss}");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Save Error", 
+                $"Failed to save canvas: {ex.Message}");
+        }
     }
 
     [RelayCommand]
