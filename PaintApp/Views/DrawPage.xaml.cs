@@ -68,6 +68,9 @@ public sealed partial class DrawPage : Page
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
     {
         ViewModel.SetXamlRoot(this.XamlRoot);
+        
+        // Load templates when page loads
+        _ = ViewModel.LoadTemplatesAsync();
     }
 
     private void DrawPage_Unloaded(object sender, RoutedEventArgs e)

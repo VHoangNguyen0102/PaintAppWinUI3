@@ -134,7 +134,17 @@ public partial class DrawPageViewModel : ViewModelBase
 
     // Collections
     public ObservableCollection<ShapeModel> Shapes { get; } = new();
+    public ObservableCollection<ShapeModel> TemplateShapes { get; } = new();
     public List<Point> PolygonPoints { get; } = new List<Point>();
+
+    [ObservableProperty]
+    private ShapeModel? selectedTemplate;
+
+    [ObservableProperty]
+    private bool isLoadingTemplates;
+
+    [ObservableProperty]
+    private bool hasTemplates;
 
     public ObservableCollection<string> Tools { get; } = new()
     {
@@ -283,6 +293,9 @@ public partial class DrawPageViewModel : ViewModelBase
         // Load shapes from database
         await LoadShapesAsync(canvas.Id);
         
+        // Load templates
+        await LoadTemplatesAsync();
+        
         // Start auto-save
         StartAutoSave();
         
@@ -304,6 +317,31 @@ public partial class DrawPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             await ShowErrorDialogAsync("Load Shapes Error", $"Failed to load shapes: {ex.Message}");
+        }
+    }
+
+    public async Task LoadTemplatesAsync()
+    {
+        IsLoadingTemplates = true;
+        try
+        {
+            var templates = await _shapeService.GetTemplateShapesAsync();
+            
+            TemplateShapes.Clear();
+            foreach (var template in templates)
+            {
+                TemplateShapes.Add(template);
+            }
+            
+            HasTemplates = TemplateShapes.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Load Templates Error", $"Failed to load templates: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingTemplates = false;
         }
     }
 
@@ -905,6 +943,9 @@ public partial class DrawPageViewModel : ViewModelBase
             // Save to database
             var savedTemplate = await _shapeService.CreateShapeAsync(templateShape);
 
+            // Reload templates
+            await LoadTemplatesAsync();
+
             await ShowSuccessDialogAsync("Template Saved", 
                 $"Shape '{savedTemplate.Type}' has been saved as a template!\n\n" +
                 $"You can now reuse this shape in other canvases.");
@@ -913,6 +954,216 @@ public partial class DrawPageViewModel : ViewModelBase
         {
             await ShowErrorDialogAsync("Save Template Error", 
                 $"Failed to save shape as template: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task UseTemplateAsync(ShapeModel? template)
+    {
+        if (template == null)
+        {
+            await ShowErrorDialogAsync("Error", "No template selected.");
+            return;
+        }
+
+        if (CurrentCanvas == null)
+        {
+            await ShowErrorDialogAsync("Error", "No canvas loaded.");
+            return;
+        }
+
+        try
+        {
+            // Create a new shape from template
+            // Position it at center of canvas
+            var newShape = new ShapeModel
+            {
+                Type = template.Type,
+                GeometryData = template.GeometryData,
+                StrokeColor = template.StrokeColor,
+                StrokeThickness = template.StrokeThickness,
+                FillColor = template.FillColor,
+                X = (CanvasWidth - template.Width) / 2,  // Center horizontally
+                Y = (CanvasHeight - template.Height) / 2, // Center vertically
+                Width = template.Width,
+                Height = template.Height,
+                ZIndex = Shapes.Count,
+                IsTemplate = false,
+                CanvasId = CurrentCanvas.Id,
+                DrawingId = null,
+                CreatedAt = DateTime.Now,
+                UsageCount = 0
+            };
+
+            // Update geometry data to new position
+            newShape = UpdateShapeGeometryForPosition(newShape);
+
+            // Save to database
+            var savedShape = await _shapeService.CreateShapeAsync(newShape);
+            
+            // Add to collection
+            Shapes.Add(savedShape);
+            ShapeCreated?.Invoke(this, savedShape);
+
+            // Update template usage count
+            template.UsageCount++;
+            await _shapeService.UpdateShapeAsync(template);
+
+            // Mark as unsaved
+            MarkAsUnsaved();
+
+            // Select the new shape
+            SelectedTool = "Select";
+            SelectShapeCommand(savedShape);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Use Template Error", 
+                $"Failed to use template: {ex.Message}");
+        }
+    }
+
+    private ShapeModel UpdateShapeGeometryForPosition(ShapeModel shape)
+    {
+        try
+        {
+            var centerX = shape.X + shape.Width / 2;
+            var centerY = shape.Y + shape.Height / 2;
+
+            switch (shape.Type)
+            {
+                case "Line":
+                    var linePoints = new List<Point>
+                    {
+                        new Point(shape.X, shape.Y),
+                        new Point(shape.X + shape.Width, shape.Y + shape.Height)
+                    };
+                    shape.GeometryData = DrawingHelper.PointsToJson(linePoints);
+                    break;
+
+                case "Rectangle":
+                    var rect = new Windows.Foundation.Rect(shape.X, shape.Y, shape.Width, shape.Height);
+                    shape.GeometryData = DrawingHelper.RectToJson(rect);
+                    break;
+
+                case "Circle":
+                    var radius = Math.Max(shape.Width, shape.Height) / 2;
+                    shape.GeometryData = JsonSerializer.Serialize(new
+                    {
+                        centerX = centerX,
+                        centerY = centerY,
+                        radius = radius
+                    });
+                    break;
+
+                case "Oval":
+                    var radiusX = shape.Width / 2;
+                    var radiusY = shape.Height / 2;
+                    shape.GeometryData = JsonSerializer.Serialize(new
+                    {
+                        centerX = centerX,
+                        centerY = centerY,
+                        radiusX = radiusX,
+                        radiusY = radiusY
+                    });
+                    break;
+
+                case "Triangle":
+                case "Polygon":
+                    // Parse existing geometry and reposition
+                    var doc = JsonDocument.Parse(shape.GeometryData);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("points", out var pointsArray))
+                    {
+                        var points = new List<Point>();
+                        var originalMinX = double.MaxValue;
+                        var originalMinY = double.MaxValue;
+                        var originalMaxX = double.MinValue;
+                        var originalMaxY = double.MinValue;
+
+                        foreach (var pointElement in pointsArray.EnumerateArray())
+                        {
+                            var x = pointElement.GetProperty("x").GetDouble();
+                            var y = pointElement.GetProperty("y").GetDouble();
+                            originalMinX = Math.Min(originalMinX, x);
+                            originalMinY = Math.Min(originalMinY, y);
+                            originalMaxX = Math.Max(originalMaxX, x);
+                            originalMaxY = Math.Max(originalMaxY, y);
+                            points.Add(new Point(x, y));
+                        }
+
+                        var originalWidth = originalMaxX - originalMinX;
+                        var originalHeight = originalMaxY - originalMinY;
+
+                        // Reposition points
+                        var repositionedPoints = new List<object>();
+                        foreach (var point in points)
+                        {
+                            var normalizedX = originalWidth > 0 ? (point.X - originalMinX) / originalWidth : 0;
+                            var normalizedY = originalHeight > 0 ? (point.Y - originalMinY) / originalHeight : 0;
+                            
+                            var newX = shape.X + normalizedX * shape.Width;
+                            var newY = shape.Y + normalizedY * shape.Height;
+                            
+                            repositionedPoints.Add(new { x = newX, y = newY });
+                        }
+
+                        shape.GeometryData = JsonSerializer.Serialize(new { points = repositionedPoints });
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error updating geometry for position: {ex.Message}");
+        }
+
+        return shape;
+    }
+
+    [RelayCommand]
+    private async Task DeleteTemplateAsync(ShapeModel? template)
+    {
+        if (template == null)
+        {
+            await ShowErrorDialogAsync("Error", "No template selected.");
+            return;
+        }
+
+        if (_xamlRoot == null) return;
+
+        // Show confirmation dialog
+        var dialog = new ContentDialog
+        {
+            Title = "Delete Template?",
+            Content = $"Are you sure you want to delete the '{template.Type}' template?\n\n" +
+                     $"This template has been used {template.UsageCount} time(s).\n\n" +
+                     $"?? This action cannot be undone.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = _xamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            try
+            {
+                await _shapeService.DeleteShapeAsync(template.Id);
+                TemplateShapes.Remove(template);
+                HasTemplates = TemplateShapes.Count > 0;
+
+                await ShowSuccessDialogAsync("Template Deleted", 
+                    $"Template '{template.Type}' has been deleted successfully.");
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorDialogAsync("Delete Template Error", 
+                    $"Failed to delete template: {ex.Message}");
+            }
         }
     }
 }
