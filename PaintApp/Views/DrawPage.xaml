@@ -242,7 +242,7 @@
                                 IsOpen="True"
                                 Severity="Informational"
                                 Title="Drawing in Progress"
-                                Message="Click to add points. Right-click to finish polygon."/>
+                                Message="Click to add points. Click first point or right-click to finish."/>
                             <StackPanel Spacing="4">
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="Points: "/>
@@ -254,7 +254,7 @@
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                     FontWeight="SemiBold"/>
                                 <TextBlock 
-                                    Text="• Polygon: Min 3 points, right-click to finish"
+                                    Text="• Polygon: Min 3 points, click first point to finish"
                                     Style="{StaticResource CaptionTextBlockStyle}" 
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                     FontWeight="SemiBold"/>

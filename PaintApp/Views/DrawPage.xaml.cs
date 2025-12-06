@@ -18,6 +18,8 @@ using XamlShape = Microsoft.UI.Xaml.Shapes.Shape;
 using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
 using CanvasModel = PaintApp.Models.Canvas;
 using ShapeModel = PaintApp.Models.Shape;
+using System.Text.Json;
+using System.Linq;
 
 namespace PaintApp.Views;
 
@@ -161,12 +163,90 @@ public sealed partial class DrawPage : Page
     {
         try
         {
-            var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+            double centerX, centerY, radiusX, radiusY;
+            
+            // Handle Circle with new format
+            if (shape.Type == "Circle")
+            {
+                try
+                {
+                    var doc = JsonDocument.Parse(shape.GeometryData);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("centerX", out var cx) &&
+                        root.TryGetProperty("centerY", out var cy) &&
+                        root.TryGetProperty("radius", out var r))
+                    {
+                        // New circle format
+                        centerX = cx.GetDouble();
+                        centerY = cy.GetDouble();
+                        var radius = r.GetDouble();
+                        radiusX = radius;
+                        radiusY = radius;
+                    }
+                    else
+                    {
+                        // Fallback to rect format for backward compatibility
+                        var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+                        centerX = rect.X + rect.Width / 2;
+                        centerY = rect.Y + rect.Height / 2;
+                        radiusX = rect.Width / 2;
+                        radiusY = rect.Height / 2;
+                    }
+                }
+                catch
+                {
+                    // Fallback to rect format
+                    var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+                    centerX = rect.X + rect.Width / 2;
+                    centerY = rect.Y + rect.Height / 2;
+                    radiusX = rect.Width / 2;
+                    radiusY = rect.Height / 2;
+                }
+            }
+            else // Oval
+            {
+                // Try to parse as oval format first (centerX, centerY, radiusX, radiusY)
+                try
+                {
+                    var doc = JsonDocument.Parse(shape.GeometryData);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("centerX", out var cx) &&
+                        root.TryGetProperty("centerY", out var cy) &&
+                        root.TryGetProperty("radiusX", out var rx) &&
+                        root.TryGetProperty("radiusY", out var ry))
+                    {
+                        centerX = cx.GetDouble();
+                        centerY = cy.GetDouble();
+                        radiusX = rx.GetDouble();
+                        radiusY = ry.GetDouble();
+                    }
+                    else
+                    {
+                        // Fallback to rect format for backward compatibility
+                        var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+                        centerX = rect.X + rect.Width / 2;
+                        centerY = rect.Y + rect.Height / 2;
+                        radiusX = rect.Width / 2;
+                        radiusY = rect.Height / 2;
+                    }
+                }
+                catch
+                {
+                    // Fallback to rect format
+                    var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+                    centerX = rect.X + rect.Width / 2;
+                    centerY = rect.Y + rect.Height / 2;
+                    radiusX = rect.Width / 2;
+                    radiusY = rect.Height / 2;
+                }
+            }
             
             var ellipse = new Ellipse
             {
-                Width = rect.Width,
-                Height = rect.Height,
+                Width = radiusX * 2,
+                Height = radiusY * 2,
                 Stroke = new SolidColorBrush(ParseColor(shape.StrokeColor)),
                 StrokeThickness = shape.StrokeThickness
             };
@@ -176,8 +256,9 @@ public sealed partial class DrawPage : Page
                 ellipse.Fill = new SolidColorBrush(ParseColor(shape.FillColor));
             }
 
-            XamlCanvas.SetLeft(ellipse, rect.X);
-            XamlCanvas.SetTop(ellipse, rect.Y);
+            // Position ellipse so center is at centerX, centerY
+            XamlCanvas.SetLeft(ellipse, centerX - radiusX);
+            XamlCanvas.SetTop(ellipse, centerY - radiusY);
 
             return ellipse;
         }
@@ -191,7 +272,44 @@ public sealed partial class DrawPage : Page
     {
         try
         {
-            var points = DrawingHelper.JsonToPoints(shape.GeometryData);
+            List<Point> points;
+            
+            if (shape.Type == "Triangle" || shape.Type == "Polygon")
+            {
+                // Parse triangle/polygon format: {"points": [{"x": x1, "y": y1}, ...]}
+                try
+                {
+                    var doc = JsonDocument.Parse(shape.GeometryData);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("points", out var pointsArray))
+                    {
+                        points = new List<Point>();
+                        foreach (var pointElement in pointsArray.EnumerateArray())
+                        {
+                            var x = pointElement.GetProperty("x").GetDouble();
+                            var y = pointElement.GetProperty("y").GetDouble();
+                            points.Add(new Point(x, y));
+                        }
+                    }
+                    else
+                    {
+                        // Fallback to old format
+                        points = DrawingHelper.JsonToPoints(shape.GeometryData);
+                    }
+                }
+                catch
+                {
+                    // Fallback to old format
+                    points = DrawingHelper.JsonToPoints(shape.GeometryData);
+                }
+            }
+            else
+            {
+                // Fallback for other polygon types
+                points = DrawingHelper.JsonToPoints(shape.GeometryData);
+            }
+            
             if (points.Count < 3) return null;
 
             var polygon = new Polygon
@@ -285,14 +403,21 @@ public sealed partial class DrawPage : Page
     {
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
 
-        // Handle Triangle và Polygon
-        if (ViewModel.SelectedTool == "Triangle" || ViewModel.SelectedTool == "Polygon")
+        // Handle Triangle with direct drawing (not polygon mode)
+        if (ViewModel.SelectedTool == "Triangle")
+        {
+            HandleTriangleClick(currentPoint);
+            return;
+        }
+
+        // Handle Polygon with multi-click drawing
+        if (ViewModel.SelectedTool == "Polygon")
         {
             HandlePolygonClick(currentPoint);
             return;
         }
 
-        // Start drawing
+        // Regular shapes
         _startPoint = currentPoint;
         _isDrawing = true;
         
@@ -351,12 +476,11 @@ public sealed partial class DrawPage : Page
                 break;
 
             case Rectangle rect:
-                var width = Math.Abs(currentPoint.X - _startPoint.X);
-                var height = Math.Abs(currentPoint.Y - _startPoint.Y);
-                rect.Width = width;
-                rect.Height = height;
-                XamlCanvas.SetLeft(rect, Math.Min(_startPoint.X, currentPoint.X));
-                XamlCanvas.SetTop(rect, Math.Min(_startPoint.Y, currentPoint.Y));
+                var rectBounds = DrawingHelper.CalculateBoundingRect(_startPoint, currentPoint);
+                rect.Width = rectBounds.Width;
+                rect.Height = rectBounds.Height;
+                XamlCanvas.SetLeft(rect, rectBounds.X);
+                XamlCanvas.SetTop(rect, rectBounds.Y);
                 break;
 
             case Ellipse ellipse when ViewModel.SelectedTool == "Circle":
@@ -376,6 +500,16 @@ public sealed partial class DrawPage : Page
                 ellipse.Height = h;
                 XamlCanvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
                 XamlCanvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
+                break;
+
+            case Polygon polygon when ViewModel.SelectedTool == "Triangle":
+                // Update triangle points based on current mouse position
+                var trianglePoints = DrawingHelper.CalculateTrianglePoints(_startPoint, currentPoint);
+                polygon.Points.Clear();
+                foreach (var point in trianglePoints)
+                {
+                    polygon.Points.Add(point);
+                }
                 break;
         }
     }
@@ -400,7 +534,8 @@ public sealed partial class DrawPage : Page
     private async Task SaveCurrentShapeAsync(Point startPoint, Point endPoint)
     {
         // Validate minimum size
-        if (!DrawingHelper.IsValidLineLength(startPoint, endPoint, minLength: 1))
+        var bounds = DrawingHelper.CalculateBoundingRect(startPoint, endPoint);
+        if (!DrawingHelper.IsValidShapeSize(bounds.Width, bounds.Height, minSize: 1))
             return;
 
         string geometryData = string.Empty;
@@ -414,10 +549,50 @@ public sealed partial class DrawPage : Page
                 break;
 
             case "Rectangle":
+                geometryData = DrawingHelper.RectToJson(bounds);
+                break;
+
             case "Oval":
+                // Calculate oval parameters
+                var centerX = (startPoint.X + endPoint.X) / 2;
+                var centerY = (startPoint.Y + endPoint.Y) / 2;
+                var radiusX = Math.Abs(endPoint.X - startPoint.X) / 2;
+                var radiusY = Math.Abs(endPoint.Y - startPoint.Y) / 2;
+                
+                var ovalData = new
+                {
+                    centerX = centerX,
+                    centerY = centerY,
+                    radiusX = radiusX,
+                    radiusY = radiusY
+                };
+                geometryData = JsonSerializer.Serialize(ovalData);
+                break;
+
             case "Circle":
-                var rect = DrawingHelper.CalculateBoundingRect(startPoint, endPoint);
-                geometryData = DrawingHelper.RectToJson(rect);
+                // Calculate circle parameters
+                var circleCenterX = (startPoint.X + endPoint.X) / 2;
+                var circleCenterY = (startPoint.Y + endPoint.Y) / 2;
+                var radius = Math.Max(
+                    Math.Abs(endPoint.X - startPoint.X) / 2,
+                    Math.Abs(endPoint.Y - startPoint.Y) / 2
+                );
+                
+                var circleData = new
+                {
+                    centerX = circleCenterX,
+                    centerY = circleCenterY,
+                    radius = radius
+                };
+                geometryData = JsonSerializer.Serialize(circleData);
+                break;
+
+            case "Triangle":
+                // Calculate triangle points from start and end
+                var trianglePoints = DrawingHelper.CalculateTrianglePoints(startPoint, endPoint);
+                var trianglePointData = trianglePoints.Select(p => new { x = p.X, y = p.Y });
+                var triangleData = new { points = trianglePointData };
+                geometryData = JsonSerializer.Serialize(triangleData);
                 break;
         }
 
@@ -431,6 +606,10 @@ public sealed partial class DrawPage : Page
             FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
             StrokeThickness = ViewModel.CurrentStrokeThickness,
             GeometryData = geometryData,
+            X = bounds.X,
+            Y = bounds.Y,
+            Width = bounds.Width,
+            Height = bounds.Height,
             CreatedAt = DateTime.Now
         };
 
@@ -447,6 +626,20 @@ public sealed partial class DrawPage : Page
 
     private void HandlePolygonClick(Point point)
     {
+        // Check if clicking on first point to close polygon
+        if (ViewModel.IsDrawingPolygon && ViewModel.PolygonPoints.Count >= 3)
+        {
+            var firstPoint = ViewModel.PolygonPoints[0];
+            var distance = DrawingHelper.CalculateDistance(point, firstPoint);
+            
+            // If clicking close to first point, complete polygon
+            if (distance <= 10) // 10 pixel tolerance
+            {
+                CompletePolygon();
+                return;
+            }
+        }
+
         if (!ViewModel.IsDrawingPolygon)
         {
             ViewModel.StartPolygonDrawing();
@@ -462,10 +655,7 @@ public sealed partial class DrawPage : Page
             DrawTemporaryLine(previousPoint, point);
         }
 
-        if (ViewModel.SelectedTool == "Triangle" && ViewModel.PolygonPoints.Count == 3)
-        {
-            CompletePolygon();
-        }
+        // Triangle auto-complete is handled in ViewModel
     }
 
     private void DrawPointMarker(Point point)
@@ -527,14 +717,27 @@ public sealed partial class DrawPage : Page
         ClearTemporaryPolygonDrawing();
         DrawingCanvas.Children.Add(polygon);
 
-        // Save to database
+        // Save to database with points array format
+        var polygonPointData = ViewModel.PolygonPoints.Select(p => new { x = p.X, y = p.Y });
+        var polygonData = new { points = polygonPointData };
+        var geometryData = JsonSerializer.Serialize(polygonData);
+
+        var bounds = DrawingHelper.CalculateBoundingRect(
+            new Point(ViewModel.PolygonPoints.Min(p => p.X), ViewModel.PolygonPoints.Min(p => p.Y)),
+            new Point(ViewModel.PolygonPoints.Max(p => p.X), ViewModel.PolygonPoints.Max(p => p.Y))
+        );
+
         var shape = new ShapeModel
         {
             Type = ViewModel.SelectedTool,
             StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
             FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
             StrokeThickness = ViewModel.CurrentStrokeThickness,
-            GeometryData = DrawingHelper.PointsToJson(ViewModel.PolygonPoints),
+            GeometryData = geometryData,
+            X = bounds.X,
+            Y = bounds.Y,
+            Width = bounds.Width,
+            Height = bounds.Height,
             CreatedAt = DateTime.Now
         };
 
@@ -555,5 +758,29 @@ public sealed partial class DrawPage : Page
             DrawingCanvas.Children.Remove(marker);
         }
         _polygonPointMarkers.Clear();
+    }
+
+    private void HandleTriangleClick(Point point)
+    {
+        // Triangle uses direct drawing (not polygon mode)
+        _startPoint = point;
+        _isDrawing = true;
+        
+        // Create preview triangle
+        var trianglePoints = DrawingHelper.CalculateTrianglePoints(_startPoint, _startPoint);
+        _currentShape = new Polygon
+        {
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        foreach (var p in trianglePoints)
+        {
+            ((Polygon)_currentShape).Points.Add(p);
+        }
+        
+        DrawingCanvas.Children.Add(_currentShape);
+        DrawingCanvas.CapturePointer(null); // We'll handle in PointerMoved
     }
 }
