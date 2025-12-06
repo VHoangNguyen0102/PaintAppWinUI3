@@ -16,6 +16,13 @@ public sealed partial class HomePage : Page
         InitializeComponent();
         ViewModel = App.ServiceProvider.GetRequiredService<HomePageViewModel>();
         DataContext = ViewModel;
+        
+        Loaded += HomePage_Loaded;
+    }
+
+    private void HomePage_Loaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SetXamlRoot(this.XamlRoot);
     }
 
     private async void StartDrawingButton_Click(object sender, RoutedEventArgs e)
