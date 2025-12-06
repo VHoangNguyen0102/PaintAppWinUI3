@@ -18,6 +18,7 @@ using Windows.Foundation.Collections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using PaintApp.Data;
+using PaintApp.Services;
 
 namespace PaintApp
 {
@@ -46,6 +47,8 @@ namespace PaintApp
             {
                 options.UseSqlite($"Data Source={dbPath}");
             });
+            
+            services.AddScoped<IProfileService, ProfileService>();
             
             services.AddTransient<ViewModels.HomePageViewModel>();
             services.AddTransient<ViewModels.ManagePageViewModel>();
