@@ -1096,6 +1096,12 @@ public sealed partial class DrawPage : Page
         {
             ViewModel.SetProfile(profile);
         }
+        else if (e.Parameter is DrawPageNavigationParameter navParam)
+        {
+            // Load canvas from ManagePage
+            ViewModel.SetProfile(navParam.Profile);
+            ViewModel.LoadCanvas(navParam.Canvas);
+        }
     }
 
     private void ToolButton_Click(object sender, RoutedEventArgs e)
