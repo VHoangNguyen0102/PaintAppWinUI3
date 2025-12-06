@@ -156,7 +156,8 @@
                     Background="White"
                     PointerPressed="Canvas_PointerPressed"
                     PointerMoved="Canvas_PointerMoved"
-                    PointerReleased="Canvas_PointerReleased"/>
+                    PointerReleased="Canvas_PointerReleased"
+                    RightTapped="Canvas_RightTapped"/>
             </Border>
 
             <Border
@@ -231,6 +232,32 @@
                                     <Run Text="Loaded: "/>
                                     <Run Text="{x:Bind ViewModel.IsCanvasLoaded, Mode=OneWay}"/>
                                 </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Polygon Drawing Status -->
+                        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsDrawingPolygon, Mode=OneWay}">
+                            <TextBlock Text="Polygon Drawing" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <InfoBar
+                                IsOpen="True"
+                                Severity="Informational"
+                                Title="Drawing in Progress"
+                                Message="Click to add points. Right-click to finish polygon."/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                    <Run Text="Points: "/>
+                                    <Run Text="{x:Bind ViewModel.PolygonPointCount, Mode=OneWay}"/>
+                                </TextBlock>
+                                <TextBlock 
+                                    Text="• Triangle: 3 points required (auto-complete)"
+                                    Style="{StaticResource CaptionTextBlockStyle}" 
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    FontWeight="SemiBold"/>
+                                <TextBlock 
+                                    Text="• Polygon: Min 3 points, right-click to finish"
+                                    Style="{StaticResource CaptionTextBlockStyle}" 
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    FontWeight="SemiBold"/>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>

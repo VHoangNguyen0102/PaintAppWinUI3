@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -22,6 +23,10 @@ public sealed partial class DrawPage : Page
     public DrawPageViewModel ViewModel { get; }
     private Point _startPoint;
     private XamlShape? _currentShape;
+    
+    // Polygon/Triangle drawing
+    private List<Line> _polygonLines = new List<Line>();
+    private List<Ellipse> _polygonPointMarkers = new List<Ellipse>();
 
     public DrawPage()
     {
@@ -109,7 +114,17 @@ public sealed partial class DrawPage : Page
 
     private void Canvas_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        _startPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+
+        // Handle Triangle và Polygon
+        if (ViewModel.SelectedTool == "Triangle" || ViewModel.SelectedTool == "Polygon")
+        {
+            HandlePolygonClick(currentPoint);
+            return;
+        }
+
+        // Regular shapes
+        _startPoint = currentPoint;
         
         _currentShape = ViewModel.SelectedTool switch
         {
@@ -198,5 +213,128 @@ public sealed partial class DrawPage : Page
     {
         _currentShape = null;
         DrawingCanvas.ReleasePointerCapture(e.Pointer);
+    }
+
+    private void Canvas_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        // Hoàn thành polygon khi right-click
+        if (ViewModel.SelectedTool == "Polygon" && ViewModel.IsDrawingPolygon && ViewModel.PolygonPoints.Count >= 3)
+        {
+            CompletePolygon();
+        }
+    }
+
+    private void HandlePolygonClick(Point point)
+    {
+        if (!ViewModel.IsDrawingPolygon)
+        {
+            // B?t ??u v? polygon m?i
+            ViewModel.StartPolygonDrawing();
+            ClearTemporaryPolygonDrawing();
+        }
+
+        // Thêm ?i?m vào polygon
+        ViewModel.AddPolygonPoint(point);
+
+        // V? marker cho ?i?m
+        DrawPointMarker(point);
+
+        // N?u có ?i?m tr??c ?ó, v? line n?i
+        if (ViewModel.PolygonPoints.Count > 1)
+        {
+            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
+            DrawTemporaryLine(previousPoint, point);
+        }
+
+        // Auto-complete triangle khi có 3 ?i?m
+        if (ViewModel.SelectedTool == "Triangle" && ViewModel.PolygonPoints.Count == 3)
+        {
+            CompletePolygon();
+        }
+    }
+
+    private void DrawPointMarker(Point point)
+    {
+        var marker = new Ellipse
+        {
+            Width = 8,
+            Height = 8,
+            Fill = new SolidColorBrush(Colors.Red),
+            Stroke = new SolidColorBrush(Colors.White),
+            StrokeThickness = 2
+        };
+
+        XamlCanvas.SetLeft(marker, point.X - 4);
+        XamlCanvas.SetTop(marker, point.Y - 4);
+
+        DrawingCanvas.Children.Add(marker);
+        _polygonPointMarkers.Add(marker);
+    }
+
+    private void DrawTemporaryLine(Point start, Point end)
+    {
+        var line = new Line
+        {
+            X1 = start.X,
+            Y1 = start.Y,
+            X2 = end.X,
+            Y2 = end.Y,
+            Stroke = new SolidColorBrush(ViewModel.StrokeColor),
+            StrokeThickness = ViewModel.StrokeThickness,
+            StrokeDashArray = new DoubleCollection { 5, 2 } // Dashed line
+        };
+
+        DrawingCanvas.Children.Add(line);
+        _polygonLines.Add(line);
+    }
+
+    private void CompletePolygon()
+    {
+        if (ViewModel.PolygonPoints.Count < 3)
+            return;
+
+        // N?i ?i?m cu?i v?i ?i?m ??u
+        var firstPoint = ViewModel.PolygonPoints[0];
+        var lastPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 1];
+        DrawTemporaryLine(lastPoint, firstPoint);
+
+        // T?o polygon shape chính th?c
+        var polygon = new Polygon
+        {
+            Stroke = new SolidColorBrush(ViewModel.StrokeColor),
+            Fill = new SolidColorBrush(ViewModel.FillColor),
+            StrokeThickness = ViewModel.StrokeThickness
+        };
+
+        foreach (var point in ViewModel.PolygonPoints)
+        {
+            polygon.Points.Add(point);
+        }
+
+        // Xóa các temporary drawings
+        ClearTemporaryPolygonDrawing();
+
+        // Thêm polygon vào canvas
+        DrawingCanvas.Children.Add(polygon);
+
+        // Reset state
+        ViewModel.ClearPolygonDrawing();
+    }
+
+    private void ClearTemporaryPolygonDrawing()
+    {
+        // Xóa temporary lines
+        foreach (var line in _polygonLines)
+        {
+            DrawingCanvas.Children.Remove(line);
+        }
+        _polygonLines.Clear();
+
+        // Xóa point markers
+        foreach (var marker in _polygonPointMarkers)
+        {
+            DrawingCanvas.Children.Remove(marker);
+        }
+        _polygonPointMarkers.Clear();
     }
 }

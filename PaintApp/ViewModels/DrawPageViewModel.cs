@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
 using Windows.UI;
 using PaintApp.Services;
 using PaintApp.Dialogs;
@@ -57,7 +59,16 @@ public partial class DrawPageViewModel : ViewModelBase
     [ObservableProperty]
     private string canvasBackgroundColor = "#FFFFFF";
 
+    [ObservableProperty]
+    private bool isDrawingPolygon;
+
+    [ObservableProperty]
+    private int polygonPointCount;
+
     public event EventHandler<CanvasModel>? CanvasLoaded;
+
+    // Polygon drawing state
+    public List<Point> PolygonPoints { get; } = new List<Point>();
 
     public ObservableCollection<string> Tools { get; } = new()
     {
@@ -99,7 +110,6 @@ public partial class DrawPageViewModel : ViewModelBase
     {
         _currentProfile = profile;
         
-        // Load default canvas settings from profile
         if (!IsCanvasLoaded)
         {
             CanvasWidth = profile.DefaultCanvasWidth;
@@ -120,8 +130,27 @@ public partial class DrawPageViewModel : ViewModelBase
         CanvasHeight = canvas.Height;
         CanvasBackgroundColor = canvas.BackgroundColor;
         
-        // Raise event to notify DrawPage
         CanvasLoaded?.Invoke(this, canvas);
+    }
+
+    public void StartPolygonDrawing()
+    {
+        IsDrawingPolygon = true;
+        PolygonPoints.Clear();
+        PolygonPointCount = 0;
+    }
+
+    public void AddPolygonPoint(Point point)
+    {
+        PolygonPoints.Add(point);
+        PolygonPointCount = PolygonPoints.Count;
+    }
+
+    public void ClearPolygonDrawing()
+    {
+        IsDrawingPolygon = false;
+        PolygonPoints.Clear();
+        PolygonPointCount = 0;
     }
 
     private Color ParseColor(string hexColor)
@@ -152,6 +181,12 @@ public partial class DrawPageViewModel : ViewModelBase
     private void SelectTool(string tool)
     {
         SelectedTool = tool;
+        
+        // Reset polygon drawing khi ??i tool
+        if (tool != "Triangle" && tool != "Polygon")
+        {
+            ClearPolygonDrawing();
+        }
     }
 
     [RelayCommand]
@@ -199,25 +234,21 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private void ClearCanvas()
     {
-        // Will be implemented later
     }
 
     [RelayCommand]
     private void Undo()
     {
-        // Will be implemented later
     }
 
     [RelayCommand]
     private void Redo()
     {
-        // Will be implemented later
     }
 
     [RelayCommand]
     private void Save()
     {
-        // Will be implemented later
     }
 
     private async Task ShowSuccessDialogAsync(string title, string message)
