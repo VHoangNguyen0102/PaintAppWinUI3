@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -55,6 +56,9 @@ public partial class DrawPageViewModel : ViewModelBase
     private bool isShapeSelected;
 
     [ObservableProperty]
+    private ShapeModel? selectedShape;
+
+    [ObservableProperty]
     private string selectedShapeInfo = "No shape selected";
 
     [ObservableProperty]
@@ -92,6 +96,7 @@ public partial class DrawPageViewModel : ViewModelBase
 
     public ObservableCollection<string> Tools { get; } = new()
     {
+        "Select",
         "Line",
         "Rectangle",
         "Oval",
@@ -207,6 +212,26 @@ public partial class DrawPageViewModel : ViewModelBase
         }
     }
 
+    public async Task UpdateShapeAsync(ShapeModel shape)
+    {
+        try
+        {
+            await _shapeService.UpdateShapeAsync(shape);
+            
+            // Find and update in collection
+            var existingShape = Shapes.FirstOrDefault(s => s.Id == shape.Id);
+            if (existingShape != null)
+            {
+                var index = Shapes.IndexOf(existingShape);
+                Shapes[index] = shape;
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Update Shape Error", $"Failed to update shape: {ex.Message}");
+        }
+    }
+
     public void StartPolygonDrawing()
     {
         IsDrawingPolygon = true;
@@ -262,6 +287,7 @@ public partial class DrawPageViewModel : ViewModelBase
         SelectedTool = tool;
         CurrentTool = tool switch
         {
+            "Select" => DrawingTool.Select,
             "Line" => DrawingTool.Line,
             "Rectangle" => DrawingTool.Rectangle,
             "Oval" => DrawingTool.Oval,
@@ -271,10 +297,28 @@ public partial class DrawPageViewModel : ViewModelBase
             _ => DrawingTool.None
         };
         
-        if (tool != "Triangle" && tool != "Polygon")
+        // Clear selection when switching to drawing tools
+        if (tool != "Select")
         {
+            SelectedShape = null;
+            IsShapeSelected = false;
+            SelectedShapeInfo = "No shape selected";
             ClearPolygonDrawing();
         }
+    }
+
+    public void SelectShapeCommand(ShapeModel shape)
+    {
+        SelectedShape = shape;
+        IsShapeSelected = true;
+        SelectedShapeInfo = $"{shape.Type} - {shape.StrokeColor}";
+    }
+
+    public void ClearSelection()
+    {
+        SelectedShape = null;
+        IsShapeSelected = false;
+        SelectedShapeInfo = "No shape selected";
     }
 
     [RelayCommand]

@@ -34,6 +34,22 @@ public sealed partial class DrawPage : Page
     // Polygon/Triangle drawing
     private List<Line> _polygonLines = new List<Line>();
     private List<Ellipse> _polygonPointMarkers = new List<Ellipse>();
+    
+    // Selection infrastructure  
+    private Dictionary<ShapeModel, XamlShape> _shapeMap = new Dictionary<ShapeModel, XamlShape>();
+    private Border? _selectionBorder;
+    
+    // Resize handles
+    private List<ResizeHandle> _resizeHandles = new List<ResizeHandle>();
+    private ResizeHandle? _activeHandle;
+    private bool _isResizing;
+    private ShapeModel? _resizingShape;
+    
+    // Move shape functionality
+    private bool _isMovingShape;
+    private ShapeModel? _movingShape;
+    private Point _moveStartPoint;
+    private Point _shapeOriginalPosition;
 
     public DrawPage()
     {
@@ -58,12 +74,20 @@ public sealed partial class DrawPage : Page
         DrawingCanvas.Background = new SolidColorBrush(ParseColor(canvas.BackgroundColor));
         DrawingCanvas.Children.Clear();
         
+        // Clear shape mapping
+        _shapeMap.Clear();
+        ClearSelectionBorder();
+        ClearResizeHandles();
+        
         // Render existing shapes
         RenderShapes();
     }
 
     private void ViewModel_ShapeCreated(object? sender, ShapeModel shape)
     {
+        // Clear any temporary drawing artifacts
+        ClearTemporaryPolygonDrawing();
+        
         // Shape already added to collection, just render it
         RenderShape(shape);
     }
@@ -100,7 +124,663 @@ public sealed partial class DrawPage : Page
 
         if (xamlShape != null)
         {
+            // Track shape mapping for selection
+            _shapeMap[shape] = xamlShape;
+            
+            // Add tap handler for selection
+            xamlShape.Tapped += (s, e) => Shape_Tapped(shape, e);
+            
+            // Add pointer events for moving
+            xamlShape.PointerPressed += (s, e) => Shape_PointerPressed(shape, e);
+            xamlShape.PointerMoved += (s, e) => Shape_PointerMoved(shape, e);
+            xamlShape.PointerReleased += (s, e) => Shape_PointerReleased(shape, e);
+            
             DrawingCanvas.Children.Add(xamlShape);
+        }
+    }
+
+    private void Shape_Tapped(ShapeModel shape, TappedRoutedEventArgs e)
+    {
+        if (ViewModel.SelectedTool == "Select")
+        {
+            e.Handled = true;
+            SelectShape(shape);
+        }
+    }
+
+    private void SelectShape(ShapeModel shape)
+    {
+        ViewModel.SelectShapeCommand(shape);
+        ClearSelectionBorder();
+        ClearResizeHandles();
+        CreateResizeHandles(shape);
+    }
+
+    private void CreateSelectionBorder(ShapeModel shape)
+    {
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        var bounds = CalculateShapeBounds(xamlShape);
+        
+        _selectionBorder = new Border
+        {
+            BorderBrush = new SolidColorBrush(Colors.Blue),
+            BorderThickness = new Thickness(2),
+            Width = bounds.Width + 10,
+            Height = bounds.Height + 10,
+            IsHitTestVisible = false
+        };
+        
+        XamlCanvas.SetLeft(_selectionBorder, bounds.X - 5);
+        XamlCanvas.SetTop(_selectionBorder, bounds.Y - 5);
+        
+        DrawingCanvas.Children.Add(_selectionBorder);
+    }
+
+    private void ClearSelectionBorder()
+    {
+        if (_selectionBorder != null)
+        {
+            DrawingCanvas.Children.Remove(_selectionBorder);
+            _selectionBorder = null;
+        }
+    }
+
+    private void ClearResizeHandles()
+    {
+        foreach (var handle in _resizeHandles)
+        {
+            DrawingCanvas.Children.Remove(handle.HandleEllipse);
+        }
+        _resizeHandles.Clear();
+    }
+
+    private void CreateResizeHandles(ShapeModel shape)
+    {
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        switch (shape.Type)
+        {
+            case "Line":
+                CreateLineHandles(shape);
+                break;
+            case "Rectangle":
+                CreateRectangleHandles(shape);
+                break;
+            case "Circle":
+            case "Oval":
+                CreateEllipseHandles(shape);
+                break;
+            case "Triangle":
+            case "Polygon":
+                CreatePolygonHandles(shape);
+                break;
+        }
+    }
+
+    private void CreateLineHandles(ShapeModel shape)
+    {
+        var points = DrawingHelper.JsonToPoints(shape.GeometryData);
+        if (points.Count < 2) return;
+
+        for (int i = 0; i < 2; i++)
+        {
+            var handle = new ResizeHandle(points[i], i, ResizeHandleType.Point);
+            handle.HandleEllipse.PointerPressed += Handle_PointerPressed;
+            handle.HandleEllipse.PointerMoved += Handle_PointerMoved;
+            handle.HandleEllipse.PointerReleased += Handle_PointerReleased;
+            _resizeHandles.Add(handle);
+            DrawingCanvas.Children.Add(handle.HandleEllipse);
+        }
+    }
+
+    private void CreateRectangleHandles(ShapeModel shape)
+    {
+        var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+        var corners = new[]
+        {
+            new Point(rect.X, rect.Y),
+            new Point(rect.X + rect.Width, rect.Y),
+            new Point(rect.X + rect.Width, rect.Y + rect.Height),
+            new Point(rect.X, rect.Y + rect.Height)
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            var handle = new ResizeHandle(corners[i], i, ResizeHandleType.Corner);
+            handle.HandleEllipse.PointerPressed += Handle_PointerPressed;
+            handle.HandleEllipse.PointerMoved += Handle_PointerMoved;
+            handle.HandleEllipse.PointerReleased += Handle_PointerReleased;
+            _resizeHandles.Add(handle);
+            DrawingCanvas.Children.Add(handle.HandleEllipse);
+        }
+    }
+
+    private void CreateEllipseHandles(ShapeModel shape)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(shape.GeometryData);
+            var root = doc.RootElement;
+            
+            double centerX, centerY, radiusX, radiusY;
+            if (shape.Type == "Circle")
+            {
+                centerX = root.GetProperty("centerX").GetDouble();
+                centerY = root.GetProperty("centerY").GetDouble();
+                var radius = root.GetProperty("radius").GetDouble();
+                radiusX = radius;
+                radiusY = radius;
+            }
+            else
+            {
+                centerX = root.GetProperty("centerX").GetDouble();
+                centerY = root.GetProperty("centerY").GetDouble();
+                radiusX = root.GetProperty("radiusX").GetDouble();
+                radiusY = root.GetProperty("radiusY").GetDouble();
+            }
+
+            var corners = new[]
+            {
+                new Point(centerX - radiusX, centerY - radiusY),
+                new Point(centerX + radiusX, centerY - radiusY),
+                new Point(centerX + radiusX, centerY + radiusY),
+                new Point(centerX - radiusX, centerY + radiusY)
+            };
+
+            for (int i = 0; i < 4; i++)
+            {
+                var handle = new ResizeHandle(corners[i], i, ResizeHandleType.BoundingBox);
+                handle.HandleEllipse.PointerPressed += Handle_PointerPressed;
+                handle.HandleEllipse.PointerMoved += Handle_PointerMoved;
+                handle.HandleEllipse.PointerReleased += Handle_PointerReleased;
+                _resizeHandles.Add(handle);
+                DrawingCanvas.Children.Add(handle.HandleEllipse);
+            }
+        }
+        catch { }
+    }
+
+    private void CreatePolygonHandles(ShapeModel shape)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(shape.GeometryData);
+            var root = doc.RootElement;
+            
+            if (!root.TryGetProperty("points", out var pointsArray))
+                return;
+
+            int index = 0;
+            foreach (var pointElement in pointsArray.EnumerateArray())
+            {
+                var x = pointElement.GetProperty("x").GetDouble();
+                var y = pointElement.GetProperty("y").GetDouble();
+                var point = new Point(x, y);
+
+                var handle = new ResizeHandle(point, index, ResizeHandleType.Point);
+                handle.HandleEllipse.PointerPressed += Handle_PointerPressed;
+                handle.HandleEllipse.PointerMoved += Handle_PointerMoved;
+                handle.HandleEllipse.PointerReleased += Handle_PointerReleased;
+                _resizeHandles.Add(handle);
+                DrawingCanvas.Children.Add(handle.HandleEllipse);
+                index++;
+            }
+        }
+        catch { }
+    }
+
+    private Windows.Foundation.Rect CalculateShapeBounds(XamlShape shape)
+    {
+        return shape switch
+        {
+            Line line => new Windows.Foundation.Rect(
+                Math.Min(line.X1, line.X2),
+                Math.Min(line.Y1, line.Y2),
+                Math.Abs(line.X2 - line.X1),
+                Math.Abs(line.Y2 - line.Y1)
+            ),
+            Rectangle rect => new Windows.Foundation.Rect(
+                XamlCanvas.GetLeft(rect),
+                XamlCanvas.GetTop(rect),
+                rect.Width,
+                rect.Height
+            ),
+            Ellipse ellipse => new Windows.Foundation.Rect(
+                XamlCanvas.GetLeft(ellipse),
+                XamlCanvas.GetTop(ellipse),
+                ellipse.Width,
+                ellipse.Height
+            ),
+            Polygon polygon => DrawingHelper.CalculateBoundingRect(
+                new Point(polygon.Points.Min(p => p.X), polygon.Points.Min(p => p.Y)),
+                new Point(polygon.Points.Max(p => p.X), polygon.Points.Max(p => p.Y))
+            ),
+            _ => new Windows.Foundation.Rect(0, 0, 0, 0)
+        };
+    }
+
+    private void Handle_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not Ellipse ellipse) return;
+        _activeHandle = _resizeHandles.FirstOrDefault(h => h.HandleEllipse == ellipse);
+        if (_activeHandle == null) return;
+        _isResizing = true;
+        _resizingShape = ViewModel.SelectedShape;
+        ellipse.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void Handle_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizing || _activeHandle == null || _resizingShape == null) return;
+        var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        _activeHandle.SetPosition(currentPoint);
+        UpdateShapeGeometry(_resizingShape, _activeHandle, currentPoint);
+        e.Handled = true;
+    }
+
+    private async void Handle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizing) return;
+        _isResizing = false;
+        if (sender is Ellipse ellipse)
+        {
+            ellipse.ReleasePointerCapture(e.Pointer);
+        }
+        
+        // Simply save the updated geometry - shape is already updated visually
+        if (_resizingShape != null)
+        {
+            await SaveShapeGeometry(_resizingShape);
+        }
+        
+        _activeHandle = null;
+        _resizingShape = null;
+        e.Handled = true;
+    }
+
+    // Shape Move Functionality
+    private void Shape_PointerPressed(ShapeModel shape, PointerRoutedEventArgs e)
+    {
+        // Only allow moving if Select tool is active and shape is selected
+        if (ViewModel.SelectedTool != "Select" || ViewModel.SelectedShape != shape)
+            return;
+
+        // Check if clicking on a handle (don't move if clicking handle)
+        if (e.OriginalSource is Ellipse ellipse && _resizeHandles.Any(h => h.HandleEllipse == ellipse))
+            return;
+
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        _isMovingShape = true;
+        _movingShape = shape;
+        _moveStartPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        _shapeOriginalPosition = GetShapePosition(xamlShape);
+
+        xamlShape.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void Shape_PointerMoved(ShapeModel shape, PointerRoutedEventArgs e)
+    {
+        if (!_isMovingShape || _movingShape != shape)
+            return;
+
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        var deltaX = currentPoint.X - _moveStartPoint.X;
+        var deltaY = currentPoint.Y - _moveStartPoint.Y;
+
+        // Move shape
+        MoveShape(xamlShape, deltaX, deltaY);
+
+        // Move handles
+        foreach (var handle in _resizeHandles)
+        {
+            var handlePos = handle.GetPosition();
+            handle.SetPosition(new Point(handlePos.X + deltaX, handlePos.Y + deltaY));
+        }
+
+        _moveStartPoint = currentPoint;
+        e.Handled = true;
+    }
+
+    private async void Shape_PointerReleased(ShapeModel shape, PointerRoutedEventArgs e)
+    {
+        if (!_isMovingShape || _movingShape != shape)
+            return;
+
+        _isMovingShape = false;
+
+        if (_shapeMap.TryGetValue(shape, out var xamlShape))
+        {
+            xamlShape.ReleasePointerCapture(e.Pointer);
+            
+            // Simply save the updated position - shape is already moved visually
+            await SaveShapeGeometry(shape);
+        }
+
+        _movingShape = null;
+        e.Handled = true;
+    }
+
+    private Point GetShapePosition(XamlShape shape)
+    {
+        return shape switch
+        {
+            Line line => new Point(line.X1, line.Y1),
+            Rectangle rect => new Point(XamlCanvas.GetLeft(rect), XamlCanvas.GetTop(rect)),
+            Ellipse ellipse => new Point(XamlCanvas.GetLeft(ellipse), XamlCanvas.GetTop(ellipse)),
+            Polygon polygon => new Point(polygon.Points[0].X, polygon.Points[0].Y),
+            _ => new Point(0, 0)
+        };
+    }
+
+    private void MoveShape(XamlShape shape, double deltaX, double deltaY)
+    {
+        switch (shape)
+        {
+            case Line line:
+                line.X1 += deltaX;
+                line.Y1 += deltaY;
+                line.X2 += deltaX;
+                line.Y2 += deltaY;
+                break;
+
+            case Rectangle rect:
+                var rectLeft = XamlCanvas.GetLeft(rect);
+                var rectTop = XamlCanvas.GetTop(rect);
+                XamlCanvas.SetLeft(rect, rectLeft + deltaX);
+                XamlCanvas.SetTop(rect, rectTop + deltaY);
+                break;
+
+            case Ellipse ellipse:
+                var ellipseLeft = XamlCanvas.GetLeft(ellipse);
+                var ellipseTop = XamlCanvas.GetTop(ellipse);
+                XamlCanvas.SetLeft(ellipse, ellipseLeft + deltaX);
+                XamlCanvas.SetTop(ellipse, ellipseTop + deltaY);
+                break;
+
+            case Polygon polygon:
+                for (int i = 0; i < polygon.Points.Count; i++)
+                {
+                    var point = polygon.Points[i];
+                    polygon.Points[i] = new Point(point.X + deltaX, point.Y + deltaY);
+                }
+                break;
+        }
+    }
+
+    private void UpdateShapeGeometry(ShapeModel shape, ResizeHandle handle, Point newPosition)
+    {
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        switch (shape.Type)
+        {
+            case "Line":
+                UpdateLineGeometry(xamlShape as Line, handle, newPosition);
+                break;
+            case "Rectangle":
+                UpdateRectangleGeometry(xamlShape as Rectangle, handle, newPosition);
+                break;
+            case "Circle":
+            case "Oval":
+                UpdateEllipseGeometry(shape, xamlShape as Ellipse, handle, newPosition);
+                break;
+            case "Triangle":
+            case "Polygon":
+                UpdatePolygonGeometry(xamlShape as Polygon, handle, newPosition);
+                break;
+        }
+    }
+
+    private void UpdateLineGeometry(Line? line, ResizeHandle handle, Point newPosition)
+    {
+        if (line == null) return;
+        if (handle.PointIndex == 0)
+        {
+            line.X1 = newPosition.X;
+            line.Y1 = newPosition.Y;
+        }
+        else
+        {
+            line.X2 = newPosition.X;
+            line.Y2 = newPosition.Y;
+        }
+    }
+
+    private void UpdateRectangleGeometry(Rectangle? rectangle, ResizeHandle handle, Point newPosition)
+    {
+        if (rectangle == null) return;
+        var oppositeIndex = (handle.PointIndex + 2) % 4;
+        var oppositeHandle = _resizeHandles.FirstOrDefault(h => h.PointIndex == oppositeIndex);
+        if (oppositeHandle == null) return;
+        var anchorPoint = oppositeHandle.GetPosition();
+        var newBounds = DrawingHelper.CalculateBoundingRect(anchorPoint, newPosition);
+        rectangle.Width = newBounds.Width;
+        rectangle.Height = newBounds.Height;
+        XamlCanvas.SetLeft(rectangle, newBounds.X);
+        XamlCanvas.SetTop(rectangle, newBounds.Y);
+        _resizeHandles[0].SetPosition(new Point(newBounds.X, newBounds.Y));
+        _resizeHandles[1].SetPosition(new Point(newBounds.X + newBounds.Width, newBounds.Y));
+        _resizeHandles[2].SetPosition(new Point(newBounds.X + newBounds.Width, newBounds.Y + newBounds.Height));
+        _resizeHandles[3].SetPosition(new Point(newBounds.X, newBounds.Y + newBounds.Height));
+    }
+
+    private void UpdateEllipseGeometry(ShapeModel shape, Ellipse? ellipse, ResizeHandle handle, Point newPosition)
+    {
+        if (ellipse == null) return;
+        var oppositeIndex = (handle.PointIndex + 2) % 4;
+        var oppositeHandle = _resizeHandles.FirstOrDefault(h => h.PointIndex == oppositeIndex);
+        if (oppositeHandle == null) return;
+        var anchorPoint = oppositeHandle.GetPosition();
+        
+        if (shape.Type == "Circle")
+        {
+            // For Circle: keep anchor point FIXED and expand from anchor
+            // Calculate distance from anchor to new position
+            var distanceX = Math.Abs(newPosition.X - anchorPoint.X);
+            var distanceY = Math.Abs(newPosition.Y - anchorPoint.Y);
+            var radius = Math.Max(distanceX, distanceY) / 2;
+            
+            // Calculate center position that keeps anchor fixed
+            // The center is radius away from anchor point
+            double centerX, centerY;
+            
+            // Determine direction based on which handle is being dragged
+            switch (handle.PointIndex)
+            {
+                case 0: // Top-left, anchor is bottom-right
+                    centerX = anchorPoint.X - radius;
+                    centerY = anchorPoint.Y - radius;
+                    break;
+                case 1: // Top-right, anchor is bottom-left
+                    centerX = anchorPoint.X + radius;
+                    centerY = anchorPoint.Y - radius;
+                    break;
+                case 2: // Bottom-right, anchor is top-left
+                    centerX = anchorPoint.X + radius;
+                    centerY = anchorPoint.Y + radius;
+                    break;
+                case 3: // Bottom-left, anchor is top-right
+                    centerX = anchorPoint.X - radius;
+                    centerY = anchorPoint.Y + radius;
+                    break;
+                default:
+                    centerX = anchorPoint.X;
+                    centerY = anchorPoint.Y;
+                    break;
+            }
+            
+            ellipse.Width = radius * 2;
+            ellipse.Height = radius * 2;
+            XamlCanvas.SetLeft(ellipse, centerX - radius);
+            XamlCanvas.SetTop(ellipse, centerY - radius);
+
+            // Update all handles
+            _resizeHandles[0].SetPosition(new Point(centerX - radius, centerY - radius));
+            _resizeHandles[1].SetPosition(new Point(centerX + radius, centerY - radius));
+            _resizeHandles[2].SetPosition(new Point(centerX + radius, centerY + radius));
+            _resizeHandles[3].SetPosition(new Point(centerX - radius, centerY + radius));
+        }
+        else // Oval
+        {
+            // For Oval: standard anchor-based resize
+            var centerX = (anchorPoint.X + newPosition.X) / 2;
+            var centerY = (anchorPoint.Y + newPosition.Y) / 2;
+            var radiusX = Math.Abs(newPosition.X - anchorPoint.X) / 2;
+            var radiusY = Math.Abs(newPosition.Y - anchorPoint.Y) / 2;
+
+            ellipse.Width = radiusX * 2;
+            ellipse.Height = radiusY * 2;
+            XamlCanvas.SetLeft(ellipse, centerX - radiusX);
+            XamlCanvas.SetTop(ellipse, centerY - radiusY);
+
+            // Update all handles
+            _resizeHandles[0].SetPosition(new Point(centerX - radiusX, centerY - radiusY));
+            _resizeHandles[1].SetPosition(new Point(centerX + radiusX, centerY - radiusY));
+            _resizeHandles[2].SetPosition(new Point(centerX + radiusX, centerY + radiusY));
+            _resizeHandles[3].SetPosition(new Point(centerX - radiusX, centerY + radiusY));
+        }
+    }
+
+    private void UpdatePolygonGeometry(Polygon? polygon, ResizeHandle handle, Point newPosition)
+    {
+        if (polygon == null || handle.PointIndex >= polygon.Points.Count) return;
+        polygon.Points[handle.PointIndex] = newPosition;
+    }
+
+    private async Task SaveShapeGeometry(ShapeModel shape)
+    {
+        if (!_shapeMap.TryGetValue(shape, out var xamlShape))
+            return;
+
+        try
+        {
+            string geometryData = string.Empty;
+            Windows.Foundation.Rect bounds;
+
+            switch (shape.Type)
+            {
+                case "Line":
+                    if (xamlShape is Line line)
+                    {
+                        var points = new List<Point>
+                        {
+                            new Point(line.X1, line.Y1),
+                            new Point(line.X2, line.Y2)
+                        };
+                        geometryData = DrawingHelper.PointsToJson(points);
+                        bounds = new Windows.Foundation.Rect(
+                            Math.Min(line.X1, line.X2),
+                            Math.Min(line.Y1, line.Y2),
+                            Math.Abs(line.X2 - line.X1),
+                            Math.Abs(line.Y2 - line.Y1)
+                        );
+                    }
+                    else return;
+                    break;
+
+                case "Rectangle":
+                    if (xamlShape is Rectangle rect)
+                    {
+                        var left = XamlCanvas.GetLeft(rect);
+                        var top = XamlCanvas.GetTop(rect);
+                        bounds = new Windows.Foundation.Rect(left, top, rect.Width, rect.Height);
+                        geometryData = DrawingHelper.RectToJson(bounds);
+                    }
+                    else return;
+                    break;
+
+                case "Circle":
+                    if (xamlShape is Ellipse circleEllipse)
+                    {
+                        var left = XamlCanvas.GetLeft(circleEllipse);
+                        var top = XamlCanvas.GetTop(circleEllipse);
+                        var centerX = left + circleEllipse.Width / 2;
+                        var centerY = top + circleEllipse.Height / 2;
+                        var radius = circleEllipse.Width / 2;
+
+                        geometryData = JsonSerializer.Serialize(new
+                        {
+                            centerX = centerX,
+                            centerY = centerY,
+                            radius = radius
+                        });
+                        
+                        bounds = new Windows.Foundation.Rect(left, top, circleEllipse.Width, circleEllipse.Height);
+                    }
+                    else return;
+                    break;
+
+                case "Oval":
+                    if (xamlShape is Ellipse ovalEllipse)
+                    {
+                        var left = XamlCanvas.GetLeft(ovalEllipse);
+                        var top = XamlCanvas.GetTop(ovalEllipse);
+                        var centerX = left + ovalEllipse.Width / 2;
+                        var centerY = top + ovalEllipse.Height / 2;
+                        var radiusX = ovalEllipse.Width / 2;
+                        var radiusY = ovalEllipse.Height / 2;
+
+                        geometryData = JsonSerializer.Serialize(new
+                        {
+                            centerX = centerX,
+                            centerY = centerY,
+                            radiusX = radiusX,
+                            radiusY = radiusY
+                        });
+                        
+                        bounds = new Windows.Foundation.Rect(left, top, ovalEllipse.Width, ovalEllipse.Height);
+                    }
+                    else return;
+                    break;
+
+                case "Triangle":
+                case "Polygon":
+                    if (xamlShape is Polygon polygon)
+                    {
+                        var pointsData = polygon.Points.Select(p => new { x = p.X, y = p.Y });
+                        geometryData = JsonSerializer.Serialize(new { points = pointsData });
+                        
+                        bounds = new Windows.Foundation.Rect(
+                            polygon.Points.Min(p => p.X),
+                            polygon.Points.Min(p => p.Y),
+                            polygon.Points.Max(p => p.X) - polygon.Points.Min(p => p.X),
+                            polygon.Points.Max(p => p.Y) - polygon.Points.Min(p => p.Y)
+                        );
+                    }
+                    else return;
+                    break;
+
+                default:
+                    return;
+            }
+
+            if (!string.IsNullOrEmpty(geometryData))
+            {
+                // Update shape model
+                shape.GeometryData = geometryData;
+                shape.X = bounds.X;
+                shape.Y = bounds.Y;
+                shape.Width = bounds.Width;
+                shape.Height = bounds.Height;
+
+                // Save to database
+                await ViewModel.UpdateShapeAsync(shape);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle error silently or show notification
+            System.Diagnostics.Debug.WriteLine($"Error saving shape geometry: {ex.Message}");
         }
     }
 
@@ -402,6 +1082,15 @@ public sealed partial class DrawPage : Page
     private void Canvas_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+
+        // Handle Select tool
+        if (ViewModel.SelectedTool == "Select")
+        {
+            ViewModel.ClearSelection();
+            ClearSelectionBorder();
+            ClearResizeHandles();
+            return;
+        }
 
         // Handle Triangle with multi-click (3 points)
         if (ViewModel.SelectedTool == "Triangle")
@@ -740,28 +1429,11 @@ public sealed partial class DrawPage : Page
         if (ViewModel.PolygonPoints.Count < 3)
             return;
 
-        var firstPoint = ViewModel.PolygonPoints[0];
-        var lastPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 1];
-        DrawTemporaryLine(lastPoint, firstPoint);
-
-        var polygon = new Polygon
-        {
-            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = GetFillBrush(),
-            StrokeThickness = ViewModel.CurrentStrokeThickness
-        };
-        
-        ApplyDashStyle(polygon);
-
-        foreach (var point in ViewModel.PolygonPoints)
-        {
-            polygon.Points.Add(point);
-        }
-
+        // Clear temporary drawing artifacts FIRST
         ClearTemporaryPolygonDrawing();
-        DrawingCanvas.Children.Add(polygon);
 
-        // Save to database with points array format
+        // Don't add to canvas here - let ViewModel_ShapeCreated handle rendering
+        // Just save to database
         var polygonPointData = ViewModel.PolygonPoints.Select(p => new { x = p.X, y = p.Y });
         var polygonData = new { points = polygonPointData };
         var geometryData = JsonSerializer.Serialize(polygonData);
@@ -787,6 +1459,7 @@ public sealed partial class DrawPage : Page
             CreatedAt = DateTime.Now
         };
 
+        // SaveShapeAsync will trigger ShapeCreated event, which will call RenderShape
         await ViewModel.SaveShapeAsync(shape);
         ViewModel.ClearPolygonDrawing();
     }
@@ -835,28 +1508,11 @@ public sealed partial class DrawPage : Page
         if (ViewModel.PolygonPoints.Count != 3)
             return;
 
-        var firstPoint = ViewModel.PolygonPoints[0];
-        var lastPoint = ViewModel.PolygonPoints[2];
-        DrawTemporaryLine(lastPoint, firstPoint);
-
-        var polygon = new Polygon
-        {
-            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = GetFillBrush(),
-            StrokeThickness = ViewModel.CurrentStrokeThickness
-        };
-        
-        ApplyDashStyle(polygon);
-
-        foreach (var point in ViewModel.PolygonPoints)
-        {
-            polygon.Points.Add(point);
-        }
-
+        // Clear temporary drawing artifacts FIRST
         ClearTemporaryPolygonDrawing();
-        DrawingCanvas.Children.Add(polygon);
 
-        // Save to database with points array format
+        // Don't add to canvas here - let ViewModel_ShapeCreated handle rendering
+        // Just save to database
         var trianglePointData = ViewModel.PolygonPoints.Select(p => new { x = p.X, y = p.Y });
         var triangleData = new { points = trianglePointData };
         var geometryData = JsonSerializer.Serialize(triangleData);
@@ -882,6 +1538,7 @@ public sealed partial class DrawPage : Page
             CreatedAt = DateTime.Now
         };
 
+        // SaveShapeAsync will trigger ShapeCreated event, which will call RenderShape
         await ViewModel.SaveShapeAsync(shape);
         ViewModel.ClearPolygonDrawing();
     }

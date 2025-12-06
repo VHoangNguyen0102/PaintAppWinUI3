@@ -25,6 +25,11 @@
             
             <AppBarSeparator/>
 
+            <AppBarButton Label="Select" Tag="Select" Click="ToolButton_Click">
+                <AppBarButton.Icon>
+                    <FontIcon Glyph="&#xE710;"/>
+                </AppBarButton.Icon>
+            </AppBarButton>
             <AppBarButton Icon="Edit" Label="Line" Click="ToolButton_Click" Tag="Line"/>
             <AppBarButton Label="Rectangle" Click="ToolButton_Click" Tag="Rectangle">
                 <AppBarButton.Icon>
