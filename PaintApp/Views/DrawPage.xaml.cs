@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,11 +11,13 @@ using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI;
 using PaintApp.ViewModels;
 using PaintApp.Models;
+using PaintApp.Helpers;
 using Windows.Foundation;
 using Windows.UI;
 using XamlShape = Microsoft.UI.Xaml.Shapes.Shape;
 using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
 using CanvasModel = PaintApp.Models.Canvas;
+using ShapeModel = PaintApp.Models.Shape;
 
 namespace PaintApp.Views;
 
@@ -22,6 +25,8 @@ public sealed partial class DrawPage : Page
 {
     public DrawPageViewModel ViewModel { get; }
     private Point _startPoint;
+    private Point? _endPoint;
+    private bool _isDrawing;
     private XamlShape? _currentShape;
     
     // Polygon/Triangle drawing
@@ -36,6 +41,7 @@ public sealed partial class DrawPage : Page
         
         Loaded += DrawPage_Loaded;
         ViewModel.CanvasLoaded += ViewModel_CanvasLoaded;
+        ViewModel.ShapeCreated += ViewModel_ShapeCreated;
     }
 
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
@@ -45,13 +51,171 @@ public sealed partial class DrawPage : Page
 
     private void ViewModel_CanvasLoaded(object? sender, CanvasModel canvas)
     {
-        // Update the drawing canvas size and background
         DrawingCanvas.Width = canvas.Width;
         DrawingCanvas.Height = canvas.Height;
         DrawingCanvas.Background = new SolidColorBrush(ParseColor(canvas.BackgroundColor));
-        
-        // Clear existing shapes
         DrawingCanvas.Children.Clear();
+        
+        // Render existing shapes
+        RenderShapes();
+    }
+
+    private void ViewModel_ShapeCreated(object? sender, ShapeModel shape)
+    {
+        // Shape already added to collection, just render it
+        RenderShape(shape);
+    }
+
+    private void RenderShapes()
+    {
+        foreach (var shape in ViewModel.Shapes)
+        {
+            RenderShape(shape);
+        }
+    }
+
+    private void RenderShape(ShapeModel shape)
+    {
+        XamlShape? xamlShape = null;
+
+        switch (shape.Type)
+        {
+            case "Line":
+                xamlShape = RenderLine(shape);
+                break;
+            case "Rectangle":
+                xamlShape = RenderRectangle(shape);
+                break;
+            case "Oval":
+            case "Circle":
+                xamlShape = RenderEllipse(shape);
+                break;
+            case "Triangle":
+            case "Polygon":
+                xamlShape = RenderPolygon(shape);
+                break;
+        }
+
+        if (xamlShape != null)
+        {
+            DrawingCanvas.Children.Add(xamlShape);
+        }
+    }
+
+    private Line? RenderLine(ShapeModel shape)
+    {
+        try
+        {
+            var points = DrawingHelper.JsonToPoints(shape.GeometryData);
+            if (points.Count < 2) return null;
+
+            var line = new Line
+            {
+                X1 = points[0].X,
+                Y1 = points[0].Y,
+                X2 = points[1].X,
+                Y2 = points[1].Y,
+                Stroke = new SolidColorBrush(ParseColor(shape.StrokeColor)),
+                StrokeThickness = shape.StrokeThickness
+            };
+
+            return line;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private Rectangle? RenderRectangle(ShapeModel shape)
+    {
+        try
+        {
+            var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+            
+            var rectangle = new Rectangle
+            {
+                Width = rect.Width,
+                Height = rect.Height,
+                Stroke = new SolidColorBrush(ParseColor(shape.StrokeColor)),
+                StrokeThickness = shape.StrokeThickness
+            };
+
+            if (!string.IsNullOrEmpty(shape.FillColor))
+            {
+                rectangle.Fill = new SolidColorBrush(ParseColor(shape.FillColor));
+            }
+
+            XamlCanvas.SetLeft(rectangle, rect.X);
+            XamlCanvas.SetTop(rectangle, rect.Y);
+
+            return rectangle;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private Ellipse? RenderEllipse(ShapeModel shape)
+    {
+        try
+        {
+            var rect = DrawingHelper.JsonToRect(shape.GeometryData);
+            
+            var ellipse = new Ellipse
+            {
+                Width = rect.Width,
+                Height = rect.Height,
+                Stroke = new SolidColorBrush(ParseColor(shape.StrokeColor)),
+                StrokeThickness = shape.StrokeThickness
+            };
+
+            if (!string.IsNullOrEmpty(shape.FillColor))
+            {
+                ellipse.Fill = new SolidColorBrush(ParseColor(shape.FillColor));
+            }
+
+            XamlCanvas.SetLeft(ellipse, rect.X);
+            XamlCanvas.SetTop(ellipse, rect.Y);
+
+            return ellipse;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private Polygon? RenderPolygon(ShapeModel shape)
+    {
+        try
+        {
+            var points = DrawingHelper.JsonToPoints(shape.GeometryData);
+            if (points.Count < 3) return null;
+
+            var polygon = new Polygon
+            {
+                Stroke = new SolidColorBrush(ParseColor(shape.StrokeColor)),
+                StrokeThickness = shape.StrokeThickness
+            };
+
+            if (!string.IsNullOrEmpty(shape.FillColor))
+            {
+                polygon.Fill = new SolidColorBrush(ParseColor(shape.FillColor));
+            }
+
+            foreach (var point in points)
+            {
+                polygon.Points.Add(point);
+            }
+
+            return polygon;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private Color ParseColor(string hexColor)
@@ -78,6 +242,11 @@ public sealed partial class DrawPage : Page
         }
     }
 
+    private string ColorToHex(Color color)
+    {
+        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -100,7 +269,7 @@ public sealed partial class DrawPage : Page
     {
         if (e.ClickedItem is Color color)
         {
-            ViewModel.StrokeColor = color;
+            ViewModel.CurrentStrokeColor = color;
         }
     }
 
@@ -108,7 +277,7 @@ public sealed partial class DrawPage : Page
     {
         if (e.ClickedItem is Color color)
         {
-            ViewModel.FillColor = color;
+            ViewModel.CurrentFillColor = color;
         }
     }
 
@@ -123,31 +292,32 @@ public sealed partial class DrawPage : Page
             return;
         }
 
-        // Regular shapes
+        // Start drawing
         _startPoint = currentPoint;
+        _isDrawing = true;
         
         _currentShape = ViewModel.SelectedTool switch
         {
             "Line" => new Line
             {
-                Stroke = new SolidColorBrush(ViewModel.StrokeColor),
-                StrokeThickness = ViewModel.StrokeThickness,
                 X1 = _startPoint.X,
                 Y1 = _startPoint.Y,
                 X2 = _startPoint.X,
-                Y2 = _startPoint.Y
+                Y2 = _startPoint.Y,
+                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+                StrokeThickness = ViewModel.CurrentStrokeThickness
             },
             "Rectangle" => new Rectangle
             {
-                Stroke = new SolidColorBrush(ViewModel.StrokeColor),
-                Fill = new SolidColorBrush(ViewModel.FillColor),
-                StrokeThickness = ViewModel.StrokeThickness
+                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+                Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+                StrokeThickness = ViewModel.CurrentStrokeThickness
             },
             "Oval" or "Circle" => new Ellipse
             {
-                Stroke = new SolidColorBrush(ViewModel.StrokeColor),
-                Fill = new SolidColorBrush(ViewModel.FillColor),
-                StrokeThickness = ViewModel.StrokeThickness
+                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+                Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+                StrokeThickness = ViewModel.CurrentStrokeThickness
             },
             _ => null
         };
@@ -168,9 +338,10 @@ public sealed partial class DrawPage : Page
 
     private void Canvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_currentShape == null) return;
+        if (!_isDrawing || _currentShape == null) return;
 
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        _endPoint = currentPoint;
 
         switch (_currentShape)
         {
@@ -209,15 +380,65 @@ public sealed partial class DrawPage : Page
         }
     }
 
-    private void Canvas_PointerReleased(object sender, PointerRoutedEventArgs e)
+    private async void Canvas_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        _currentShape = null;
+        if (!_isDrawing) return;
+
+        _isDrawing = false;
         DrawingCanvas.ReleasePointerCapture(e.Pointer);
+
+        // Save shape to database
+        if (_endPoint.HasValue)
+        {
+            await SaveCurrentShapeAsync(_startPoint, _endPoint.Value);
+        }
+
+        _currentShape = null;
+        _endPoint = null;
+    }
+
+    private async Task SaveCurrentShapeAsync(Point startPoint, Point endPoint)
+    {
+        // Validate minimum size
+        if (!DrawingHelper.IsValidLineLength(startPoint, endPoint, minLength: 1))
+            return;
+
+        string geometryData = string.Empty;
+        string shapeType = ViewModel.SelectedTool;
+
+        switch (ViewModel.SelectedTool)
+        {
+            case "Line":
+                var linePoints = new List<Point> { startPoint, endPoint };
+                geometryData = DrawingHelper.PointsToJson(linePoints);
+                break;
+
+            case "Rectangle":
+            case "Oval":
+            case "Circle":
+                var rect = DrawingHelper.CalculateBoundingRect(startPoint, endPoint);
+                geometryData = DrawingHelper.RectToJson(rect);
+                break;
+        }
+
+        if (string.IsNullOrEmpty(geometryData))
+            return;
+
+        var shape = new ShapeModel
+        {
+            Type = shapeType,
+            StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
+            FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
+            StrokeThickness = ViewModel.CurrentStrokeThickness,
+            GeometryData = geometryData,
+            CreatedAt = DateTime.Now
+        };
+
+        await ViewModel.SaveShapeAsync(shape);
     }
 
     private void Canvas_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        // Hoàn thành polygon khi right-click
         if (ViewModel.SelectedTool == "Polygon" && ViewModel.IsDrawingPolygon && ViewModel.PolygonPoints.Count >= 3)
         {
             CompletePolygon();
@@ -228,25 +449,19 @@ public sealed partial class DrawPage : Page
     {
         if (!ViewModel.IsDrawingPolygon)
         {
-            // B?t ??u v? polygon m?i
             ViewModel.StartPolygonDrawing();
             ClearTemporaryPolygonDrawing();
         }
 
-        // Thêm ?i?m vào polygon
         ViewModel.AddPolygonPoint(point);
-
-        // V? marker cho ?i?m
         DrawPointMarker(point);
 
-        // N?u có ?i?m tr??c ?ó, v? line n?i
         if (ViewModel.PolygonPoints.Count > 1)
         {
             var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
             DrawTemporaryLine(previousPoint, point);
         }
 
-        // Auto-complete triangle khi có 3 ?i?m
         if (ViewModel.SelectedTool == "Triangle" && ViewModel.PolygonPoints.Count == 3)
         {
             CompletePolygon();
@@ -279,31 +494,29 @@ public sealed partial class DrawPage : Page
             Y1 = start.Y,
             X2 = end.X,
             Y2 = end.Y,
-            Stroke = new SolidColorBrush(ViewModel.StrokeColor),
-            StrokeThickness = ViewModel.StrokeThickness,
-            StrokeDashArray = new DoubleCollection { 5, 2 } // Dashed line
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            StrokeThickness = ViewModel.CurrentStrokeThickness,
+            StrokeDashArray = new DoubleCollection { 5, 2 }
         };
 
         DrawingCanvas.Children.Add(line);
         _polygonLines.Add(line);
     }
 
-    private void CompletePolygon()
+    private async void CompletePolygon()
     {
         if (ViewModel.PolygonPoints.Count < 3)
             return;
 
-        // N?i ?i?m cu?i v?i ?i?m ??u
         var firstPoint = ViewModel.PolygonPoints[0];
         var lastPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 1];
         DrawTemporaryLine(lastPoint, firstPoint);
 
-        // T?o polygon shape chính th?c
         var polygon = new Polygon
         {
-            Stroke = new SolidColorBrush(ViewModel.StrokeColor),
-            Fill = new SolidColorBrush(ViewModel.FillColor),
-            StrokeThickness = ViewModel.StrokeThickness
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
         };
 
         foreach (var point in ViewModel.PolygonPoints)
@@ -311,26 +524,32 @@ public sealed partial class DrawPage : Page
             polygon.Points.Add(point);
         }
 
-        // Xóa các temporary drawings
         ClearTemporaryPolygonDrawing();
-
-        // Thêm polygon vào canvas
         DrawingCanvas.Children.Add(polygon);
 
-        // Reset state
+        // Save to database
+        var shape = new ShapeModel
+        {
+            Type = ViewModel.SelectedTool,
+            StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
+            FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
+            StrokeThickness = ViewModel.CurrentStrokeThickness,
+            GeometryData = DrawingHelper.PointsToJson(ViewModel.PolygonPoints),
+            CreatedAt = DateTime.Now
+        };
+
+        await ViewModel.SaveShapeAsync(shape);
         ViewModel.ClearPolygonDrawing();
     }
 
     private void ClearTemporaryPolygonDrawing()
     {
-        // Xóa temporary lines
         foreach (var line in _polygonLines)
         {
             DrawingCanvas.Children.Remove(line);
         }
         _polygonLines.Clear();
 
-        // Xóa point markers
         foreach (var marker in _polygonPointMarkers)
         {
             DrawingCanvas.Children.Remove(marker);

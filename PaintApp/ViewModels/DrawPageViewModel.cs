@@ -12,7 +12,9 @@ using Windows.Foundation;
 using Windows.UI;
 using PaintApp.Services;
 using PaintApp.Dialogs;
+using PaintApp.Helpers;
 using CanvasModel = PaintApp.Models.Canvas;
+using ShapeModel = PaintApp.Models.Shape;
 using PaintApp.Models;
 
 namespace PaintApp.ViewModels;
@@ -20,6 +22,7 @@ namespace PaintApp.ViewModels;
 public partial class DrawPageViewModel : ViewModelBase
 {
     private readonly ICanvasService _canvasService;
+    private readonly IShapeService _shapeService;
     private XamlRoot? _xamlRoot;
     private Profile? _currentProfile;
 
@@ -27,16 +30,19 @@ public partial class DrawPageViewModel : ViewModelBase
     private CanvasModel? currentCanvas;
 
     [ObservableProperty]
+    private DrawingTool currentTool = DrawingTool.Line;
+
+    [ObservableProperty]
     private string selectedTool = "Line";
 
     [ObservableProperty]
-    private Color strokeColor = Colors.Black;
+    private Color currentStrokeColor = Colors.Black;
 
     [ObservableProperty]
-    private Color fillColor = Colors.Transparent;
+    private Color? currentFillColor = Colors.Transparent;
 
     [ObservableProperty]
-    private double strokeThickness = 2.0;
+    private double currentStrokeThickness = 2.0;
 
     [ObservableProperty]
     private bool isShapeSelected;
@@ -65,9 +71,16 @@ public partial class DrawPageViewModel : ViewModelBase
     [ObservableProperty]
     private int polygonPointCount;
 
-    public event EventHandler<CanvasModel>? CanvasLoaded;
+    // Drawing state
+    public Point? StartPoint { get; set; }
+    public Point? EndPoint { get; set; }
+    public bool IsDrawing { get; set; }
 
-    // Polygon drawing state
+    public event EventHandler<CanvasModel>? CanvasLoaded;
+    public event EventHandler<ShapeModel>? ShapeCreated;
+
+    // Collections
+    public ObservableCollection<ShapeModel> Shapes { get; } = new();
     public List<Point> PolygonPoints { get; } = new List<Point>();
 
     public ObservableCollection<string> Tools { get; } = new()
@@ -96,9 +109,10 @@ public partial class DrawPageViewModel : ViewModelBase
         Colors.Cyan
     };
 
-    public DrawPageViewModel(ICanvasService canvasService)
+    public DrawPageViewModel(ICanvasService canvasService, IShapeService shapeService)
     {
         _canvasService = canvasService;
+        _shapeService = shapeService;
     }
 
     public void SetXamlRoot(XamlRoot xamlRoot)
@@ -115,13 +129,13 @@ public partial class DrawPageViewModel : ViewModelBase
             CanvasWidth = profile.DefaultCanvasWidth;
             CanvasHeight = profile.DefaultCanvasHeight;
             CanvasBackgroundColor = profile.DefaultCanvasBackgroundColor;
-            StrokeColor = ParseColor(profile.DefaultStrokeColor);
-            FillColor = ParseColor(profile.DefaultFillColor);
-            StrokeThickness = profile.DefaultStrokeThickness;
+            CurrentStrokeColor = ParseColor(profile.DefaultStrokeColor);
+            CurrentFillColor = ParseColor(profile.DefaultFillColor);
+            CurrentStrokeThickness = profile.DefaultStrokeThickness;
         }
     }
 
-    public void LoadCanvas(CanvasModel canvas)
+    public async void LoadCanvas(CanvasModel canvas)
     {
         CurrentCanvas = canvas;
         IsCanvasLoaded = true;
@@ -130,7 +144,50 @@ public partial class DrawPageViewModel : ViewModelBase
         CanvasHeight = canvas.Height;
         CanvasBackgroundColor = canvas.BackgroundColor;
         
+        // Load shapes from database
+        await LoadShapesAsync(canvas.Id);
+        
         CanvasLoaded?.Invoke(this, canvas);
+    }
+
+    private async Task LoadShapesAsync(int canvasId)
+    {
+        try
+        {
+            var shapes = await _shapeService.GetShapesByCanvasIdAsync(canvasId);
+            
+            Shapes.Clear();
+            foreach (var shape in shapes)
+            {
+                Shapes.Add(shape);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Load Shapes Error", $"Failed to load shapes: {ex.Message}");
+        }
+    }
+
+    public async Task SaveShapeAsync(ShapeModel shape)
+    {
+        try
+        {
+            if (CurrentCanvas == null)
+            {
+                await ShowErrorDialogAsync("Error", "No canvas loaded.");
+                return;
+            }
+
+            shape.CanvasId = CurrentCanvas.Id;
+            var createdShape = await _shapeService.CreateShapeAsync(shape);
+            
+            Shapes.Add(createdShape);
+            ShapeCreated?.Invoke(this, createdShape);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Save Shape Error", $"Failed to save shape: {ex.Message}");
+        }
     }
 
     public void StartPolygonDrawing()
@@ -177,12 +234,26 @@ public partial class DrawPageViewModel : ViewModelBase
         }
     }
 
+    private string ColorToHex(Color color)
+    {
+        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
+
     [RelayCommand]
     private void SelectTool(string tool)
     {
         SelectedTool = tool;
+        CurrentTool = tool switch
+        {
+            "Line" => DrawingTool.Line,
+            "Rectangle" => DrawingTool.Rectangle,
+            "Oval" => DrawingTool.Oval,
+            "Circle" => DrawingTool.Circle,
+            "Triangle" => DrawingTool.Triangle,
+            "Polygon" => DrawingTool.Polygon,
+            _ => DrawingTool.None
+        };
         
-        // Reset polygon drawing khi ??i tool
         if (tool != "Triangle" && tool != "Polygon")
         {
             ClearPolygonDrawing();
@@ -192,13 +263,13 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private void SelectStrokeColor(Color color)
     {
-        StrokeColor = color;
+        CurrentStrokeColor = color;
     }
 
     [RelayCommand]
     private void SelectFillColor(Color color)
     {
-        FillColor = color;
+        CurrentFillColor = color;
     }
 
     [RelayCommand]
@@ -279,5 +350,30 @@ public partial class DrawPageViewModel : ViewModelBase
         };
 
         await dialog.ShowAsync();
+    }
+
+    // Compatibility properties (backward compatibility)
+    [ObservableProperty]
+    private Color strokeColor = Colors.Black;
+
+    [ObservableProperty]
+    private Color fillColor = Colors.Transparent;
+
+    [ObservableProperty]
+    private double strokeThickness = 2.0;
+
+    partial void OnCurrentStrokeColorChanged(Color value)
+    {
+        StrokeColor = value;
+    }
+
+    partial void OnCurrentFillColorChanged(Color? value)
+    {
+        FillColor = value ?? Colors.Transparent;
+    }
+
+    partial void OnCurrentStrokeThicknessChanged(double value)
+    {
+        StrokeThickness = value;
     }
 }
