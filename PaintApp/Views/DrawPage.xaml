@@ -448,7 +448,7 @@
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="Shapes: "/>
-                                    <Run Text="0"/>
+                                    <Run Text="{x:Bind ViewModel.Shapes.Count, Mode=OneWay}"/>
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="Loaded: "/>
@@ -457,30 +457,37 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- Polygon Drawing Status -->
-                        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsDrawingPolygon, Mode=OneWay}">
-                            <TextBlock Text="Polygon Drawing" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <InfoBar
-                                IsOpen="True"
-                                Severity="Informational"
-                                Title="Drawing in Progress"
-                                Message="Click to add points. Click first point or right-click to finish."/>
-                            <StackPanel Spacing="4">
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                                    <Run Text="Points: "/>
-                                    <Run Text="{x:Bind ViewModel.PolygonPointCount, Mode=OneWay}"/>
-                                </TextBlock>
-                                <TextBlock 
-                                    Text="• Triangle: 3 points required (auto-complete)"
-                                    Style="{StaticResource CaptionTextBlockStyle}" 
-                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    FontWeight="SemiBold"/>
-                                <TextBlock 
-                                    Text="• Polygon: Min 3 points, click first point to finish"
-                                    Style="{StaticResource CaptionTextBlockStyle}" 
-                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    FontWeight="SemiBold"/>
-                            </StackPanel>
+                        <!-- Auto-Save Status -->
+                        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsCanvasLoaded, Mode=OneWay}">
+                            <TextBlock Text="Auto-Save" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <Border
+                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                CornerRadius="4"
+                                Padding="12,8">
+                                <StackPanel Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <ProgressRing 
+                                            Width="16" 
+                                            Height="16"
+                                            IsActive="{x:Bind ViewModel.IsAutoSaving, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsAutoSaving, Mode=OneWay}"/>
+                                        <FontIcon 
+                                            Glyph="&#xE73E;" 
+                                            FontSize="16"
+                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                            Visibility="{x:Bind ViewModel.IsAutoSaving, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
+                                        <TextBlock 
+                                            Text="{x:Bind ViewModel.AutoSaveStatus, Mode=OneWay}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock 
+                                        Text="Auto-saves every 30 seconds"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        FontSize="11"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

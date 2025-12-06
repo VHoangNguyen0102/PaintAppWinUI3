@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Dispatching;
 using Windows.Foundation;
 using Windows.UI;
 using PaintApp.Services;
@@ -108,6 +109,19 @@ public partial class DrawPageViewModel : ViewModelBase
     [ObservableProperty]
     private int polygonPointCount;
 
+    [ObservableProperty]
+    private bool isAutoSaving;
+
+    [ObservableProperty]
+    private string autoSaveStatus = "Auto-save enabled";
+
+    [ObservableProperty]
+    private DateTime? lastAutoSavedAt;
+
+    // Auto-save timer
+    private DispatcherTimer? _autoSaveTimer;
+    private bool _hasUnsavedChanges;
+
     // Drawing state
     public Point? StartPoint { get; set; }
     public Point? EndPoint { get; set; }
@@ -163,6 +177,78 @@ public partial class DrawPageViewModel : ViewModelBase
         _canvasService = canvasService;
         _shapeService = shapeService;
         _profileService = profileService;
+        
+        InitializeAutoSave();
+    }
+
+    private void InitializeAutoSave()
+    {
+        _autoSaveTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30)
+        };
+        _autoSaveTimer.Tick += AutoSaveTimer_Tick;
+    }
+
+    private async void AutoSaveTimer_Tick(object? sender, object e)
+    {
+        await PerformAutoSaveAsync();
+    }
+
+    private async Task PerformAutoSaveAsync()
+    {
+        if (!_hasUnsavedChanges || CurrentCanvas == null || IsAutoSaving)
+            return;
+
+        try
+        {
+            IsAutoSaving = true;
+            AutoSaveStatus = "Saving...";
+
+            // Update canvas timestamp
+            CurrentCanvas.UpdatedAt = DateTime.Now;
+            
+            // Save canvas to database
+            await _canvasService.UpdateCanvasAsync(CurrentCanvas);
+            
+            // Update status
+            LastAutoSavedAt = DateTime.Now;
+            AutoSaveStatus = $"Saved at {LastAutoSavedAt:HH:mm:ss}";
+            _hasUnsavedChanges = false;
+            
+            // Update canvas info display
+            CanvasInfo = $"{CurrentCanvas.Name} - {CurrentCanvas.Width} × {CurrentCanvas.Height} (Auto-saved: {LastAutoSavedAt:HH:mm:ss})";
+        }
+        catch (Exception ex)
+        {
+            AutoSaveStatus = "Auto-save failed";
+            System.Diagnostics.Debug.WriteLine($"Auto-save error: {ex.Message}");
+        }
+        finally
+        {
+            IsAutoSaving = false;
+        }
+    }
+
+    public void StartAutoSave()
+    {
+        _autoSaveTimer?.Start();
+        AutoSaveStatus = "Auto-save enabled";
+    }
+
+    public void StopAutoSave()
+    {
+        _autoSaveTimer?.Stop();
+        AutoSaveStatus = "Auto-save disabled";
+    }
+
+    private void MarkAsUnsaved()
+    {
+        _hasUnsavedChanges = true;
+        if (LastAutoSavedAt.HasValue)
+        {
+            AutoSaveStatus = "Unsaved changes";
+        }
     }
 
     public void SetXamlRoot(XamlRoot xamlRoot)
@@ -196,6 +282,9 @@ public partial class DrawPageViewModel : ViewModelBase
         
         // Load shapes from database
         await LoadShapesAsync(canvas.Id);
+        
+        // Start auto-save
+        StartAutoSave();
         
         CanvasLoaded?.Invoke(this, canvas);
     }
@@ -233,6 +322,9 @@ public partial class DrawPageViewModel : ViewModelBase
             
             Shapes.Add(createdShape);
             ShapeCreated?.Invoke(this, createdShape);
+            
+            // Mark as unsaved for auto-save
+            MarkAsUnsaved();
         }
         catch (Exception ex)
         {
@@ -253,6 +345,9 @@ public partial class DrawPageViewModel : ViewModelBase
                 var index = Shapes.IndexOf(existingShape);
                 Shapes[index] = shape;
             }
+            
+            // Mark as unsaved for auto-save
+            MarkAsUnsaved();
         }
         catch (Exception ex)
         {
@@ -268,6 +363,9 @@ public partial class DrawPageViewModel : ViewModelBase
             
             Shapes.Remove(shape);
             ShapeDeleted?.Invoke(this, shape);
+            
+            // Mark as unsaved for auto-save
+            MarkAsUnsaved();
         }
         catch (Exception ex)
         {
@@ -467,6 +565,11 @@ public partial class DrawPageViewModel : ViewModelBase
             // Save canvas to database
             await _canvasService.UpdateCanvasAsync(CurrentCanvas);
             
+            // Reset unsaved changes flag
+            _hasUnsavedChanges = false;
+            LastAutoSavedAt = DateTime.Now;
+            AutoSaveStatus = $"Saved at {LastAutoSavedAt:HH:mm:ss}";
+            
             // Update canvas info display
             CanvasInfo = $"{CurrentCanvas.Name} - {CurrentCanvas.Width} × {CurrentCanvas.Height} (Saved: {CurrentCanvas.UpdatedAt:HH:mm:ss})";
             
@@ -622,6 +725,9 @@ public partial class DrawPageViewModel : ViewModelBase
             
             // Notify UI to update visual
             ShapeUpdated?.Invoke(this, SelectedShape);
+            
+            // Mark as unsaved for auto-save
+            MarkAsUnsaved();
         }
         catch (Exception ex)
         {

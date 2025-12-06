@@ -58,6 +58,7 @@ public sealed partial class DrawPage : Page
         DataContext = ViewModel;
         
         Loaded += DrawPage_Loaded;
+        Unloaded += DrawPage_Unloaded;
         ViewModel.CanvasLoaded += ViewModel_CanvasLoaded;
         ViewModel.ShapeCreated += ViewModel_ShapeCreated;
         ViewModel.ShapeUpdated += ViewModel_ShapeUpdated;
@@ -67,6 +68,12 @@ public sealed partial class DrawPage : Page
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
     {
         ViewModel.SetXamlRoot(this.XamlRoot);
+    }
+
+    private void DrawPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // Stop auto-save timer when page is unloaded
+        ViewModel.StopAutoSave();
     }
 
     private void ViewModel_CanvasLoaded(object? sender, CanvasModel canvas)
