@@ -52,6 +52,7 @@ namespace PaintApp
             // Services
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<ICanvasService, CanvasService>();
+            services.AddScoped<IShapeService, ShapeService>();
             
             // ViewModels
             services.AddTransient<ViewModels.HomePageViewModel>();
