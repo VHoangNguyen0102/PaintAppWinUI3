@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -61,6 +62,31 @@ public partial class DrawPageViewModel : ViewModelBase
     [ObservableProperty]
     private string selectedShapeInfo = "No shape selected";
 
+    // Selected Shape Properties (for editing)
+    [ObservableProperty]
+    private double selectedShapeX;
+
+    [ObservableProperty]
+    private double selectedShapeY;
+
+    [ObservableProperty]
+    private double selectedShapeWidth;
+
+    [ObservableProperty]
+    private double selectedShapeHeight;
+
+    [ObservableProperty]
+    private Color selectedShapeStrokeColor = Colors.Black;
+
+    [ObservableProperty]
+    private double selectedShapeStrokeThickness = 2.0;
+
+    [ObservableProperty]
+    private Color? selectedShapeFillColor;
+
+    [ObservableProperty]
+    private bool selectedShapeHasFill;
+
     [ObservableProperty]
     private string canvasInfo = "No canvas loaded";
 
@@ -89,6 +115,8 @@ public partial class DrawPageViewModel : ViewModelBase
 
     public event EventHandler<CanvasModel>? CanvasLoaded;
     public event EventHandler<ShapeModel>? ShapeCreated;
+    public event EventHandler<ShapeModel>? ShapeUpdated;
+    public event EventHandler<ShapeModel>? ShapeDeleted;
 
     // Collections
     public ObservableCollection<ShapeModel> Shapes { get; } = new();
@@ -232,6 +260,21 @@ public partial class DrawPageViewModel : ViewModelBase
         }
     }
 
+    public async Task DeleteShapeAsync(ShapeModel shape)
+    {
+        try
+        {
+            await _shapeService.DeleteShapeAsync(shape.Id);
+            
+            Shapes.Remove(shape);
+            ShapeDeleted?.Invoke(this, shape);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Delete Shape Error", $"Failed to delete shape: {ex.Message}");
+        }
+    }
+
     public void StartPolygonDrawing()
     {
         IsDrawingPolygon = true;
@@ -312,6 +355,25 @@ public partial class DrawPageViewModel : ViewModelBase
         SelectedShape = shape;
         IsShapeSelected = true;
         SelectedShapeInfo = $"{shape.Type} - {shape.StrokeColor}";
+        
+        // Populate editable properties
+        SelectedShapeX = shape.X;
+        SelectedShapeY = shape.Y;
+        SelectedShapeWidth = shape.Width;
+        SelectedShapeHeight = shape.Height;
+        SelectedShapeStrokeColor = ParseColor(shape.StrokeColor);
+        SelectedShapeStrokeThickness = shape.StrokeThickness;
+        
+        if (!string.IsNullOrEmpty(shape.FillColor))
+        {
+            SelectedShapeFillColor = ParseColor(shape.FillColor);
+            SelectedShapeHasFill = true;
+        }
+        else
+        {
+            SelectedShapeFillColor = Colors.Transparent;
+            SelectedShapeHasFill = false;
+        }
     }
 
     public void ClearSelection()
@@ -319,6 +381,16 @@ public partial class DrawPageViewModel : ViewModelBase
         SelectedShape = null;
         IsShapeSelected = false;
         SelectedShapeInfo = "No shape selected";
+        
+        // Reset editable properties
+        SelectedShapeX = 0;
+        SelectedShapeY = 0;
+        SelectedShapeWidth = 0;
+        SelectedShapeHeight = 0;
+        SelectedShapeStrokeColor = Colors.Black;
+        SelectedShapeStrokeThickness = 2.0;
+        SelectedShapeFillColor = Colors.Transparent;
+        SelectedShapeHasFill = false;
     }
 
     [RelayCommand]
@@ -465,5 +537,204 @@ public partial class DrawPageViewModel : ViewModelBase
     partial void OnCurrentStrokeThicknessChanged(double value)
     {
         StrokeThickness = value;
+    }
+
+    // Property change handlers for selected shape (update and save)
+    partial void OnSelectedShapeStrokeColorChanged(Color value)
+    {
+        if (SelectedShape != null && ColorToHex(value) != SelectedShape.StrokeColor)
+        {
+            SelectedShape.StrokeColor = ColorToHex(value);
+            _ = UpdateAndSaveSelectedShapeAsync();
+        }
+    }
+
+    partial void OnSelectedShapeStrokeThicknessChanged(double value)
+    {
+        if (SelectedShape != null && Math.Abs(SelectedShape.StrokeThickness - value) > 0.001)
+        {
+            SelectedShape.StrokeThickness = value;
+            _ = UpdateAndSaveSelectedShapeAsync();
+        }
+    }
+
+    partial void OnSelectedShapeFillColorChanged(Color? value)
+    {
+        if (SelectedShape != null)
+        {
+            var newFillColor = value.HasValue && SelectedShapeHasFill ? ColorToHex(value.Value) : null;
+            if (newFillColor != SelectedShape.FillColor)
+            {
+                SelectedShape.FillColor = newFillColor;
+                _ = UpdateAndSaveSelectedShapeAsync();
+            }
+        }
+    }
+
+    partial void OnSelectedShapeHasFillChanged(bool value)
+    {
+        if (SelectedShape != null)
+        {
+            var newFillColor = value && SelectedShapeFillColor.HasValue ? ColorToHex(SelectedShapeFillColor.Value) : null;
+            if (newFillColor != SelectedShape.FillColor)
+            {
+                SelectedShape.FillColor = newFillColor;
+                _ = UpdateAndSaveSelectedShapeAsync();
+            }
+        }
+    }
+
+    private async Task UpdateAndSaveSelectedShapeAsync()
+    {
+        if (SelectedShape == null) return;
+
+        try
+        {
+            // Save to database (no need to update geometry for color/thickness changes)
+            await UpdateShapeAsync(SelectedShape);
+            
+            // Notify UI to update visual
+            ShapeUpdated?.Invoke(this, SelectedShape);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Update Error", $"Failed to update shape: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateShapeGeometryDataAsync(ShapeModel shape)
+    {
+        try
+        {
+            switch (shape.Type)
+            {
+                case "Line":
+                    // Line: update endpoints based on position and size
+                    var linePoints = new List<Point>
+                    {
+                        new Point(shape.X, shape.Y),
+                        new Point(shape.X + shape.Width, shape.Y + shape.Height)
+                    };
+                    shape.GeometryData = DrawingHelper.PointsToJson(linePoints);
+                    break;
+
+                case "Rectangle":
+                    // Rectangle: update rect based on position and size
+                    var rect = new Windows.Foundation.Rect(shape.X, shape.Y, shape.Width, shape.Height);
+                    shape.GeometryData = DrawingHelper.RectToJson(rect);
+                    break;
+
+                case "Circle":
+                    // Circle: update center and radius
+                    var circleCenterX = shape.X + shape.Width / 2;
+                    var circleCenterY = shape.Y + shape.Height / 2;
+                    var radius = Math.Max(shape.Width, shape.Height) / 2;
+                    
+                    shape.GeometryData = JsonSerializer.Serialize(new
+                    {
+                        centerX = circleCenterX,
+                        centerY = circleCenterY,
+                        radius = radius
+                    });
+                    break;
+
+                case "Oval":
+                    // Oval: update center and radii
+                    var ovalCenterX = shape.X + shape.Width / 2;
+                    var ovalCenterY = shape.Y + shape.Height / 2;
+                    var radiusX = shape.Width / 2;
+                    var radiusY = shape.Height / 2;
+                    
+                    shape.GeometryData = JsonSerializer.Serialize(new
+                    {
+                        centerX = ovalCenterX,
+                        centerY = ovalCenterY,
+                        radiusX = radiusX,
+                        radiusY = radiusY
+                    });
+                    break;
+
+                case "Triangle":
+                case "Polygon":
+                    // For polygons, we need to scale points proportionally
+                    var doc = JsonDocument.Parse(shape.GeometryData);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("points", out var pointsArray))
+                    {
+                        var points = new List<Point>();
+                        var originalMinX = double.MaxValue;
+                        var originalMinY = double.MaxValue;
+                        var originalMaxX = double.MinValue;
+                        var originalMaxY = double.MinValue;
+
+                        // Get original bounds
+                        foreach (var pointElement in pointsArray.EnumerateArray())
+                        {
+                            var x = pointElement.GetProperty("x").GetDouble();
+                            var y = pointElement.GetProperty("y").GetDouble();
+                            originalMinX = Math.Min(originalMinX, x);
+                            originalMinY = Math.Min(originalMinY, y);
+                            originalMaxX = Math.Max(originalMaxX, x);
+                            originalMaxY = Math.Max(originalMaxY, y);
+                            points.Add(new Point(x, y));
+                        }
+
+                        var originalWidth = originalMaxX - originalMinX;
+                        var originalHeight = originalMaxY - originalMinY;
+
+                        // Scale and reposition points
+                        var scaledPoints = new List<object>();
+                        foreach (var point in points)
+                        {
+                            var normalizedX = originalWidth > 0 ? (point.X - originalMinX) / originalWidth : 0;
+                            var normalizedY = originalHeight > 0 ? (point.Y - originalMinY) / originalHeight : 0;
+                            
+                            var newX = shape.X + normalizedX * shape.Width;
+                            var newY = shape.Y + normalizedY * shape.Height;
+                            
+                            scaledPoints.Add(new { x = newX, y = newY });
+                        }
+
+                        shape.GeometryData = JsonSerializer.Serialize(new { points = scaledPoints });
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error updating geometry data: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedShapeAsync()
+    {
+        if (SelectedShape == null)
+        {
+            await ShowErrorDialogAsync("Error", "No shape selected.");
+            return;
+        }
+
+        try
+        {
+            // Delete from database
+            await _shapeService.DeleteShapeAsync(SelectedShape.Id);
+            
+            // Remove from collection
+            Shapes.Remove(SelectedShape);
+            
+            // Notify UI
+            ShapeDeleted?.Invoke(this, SelectedShape);
+            
+            // Clear selection
+            ClearSelection();
+            
+            await ShowSuccessDialogAsync("Success", "Shape deleted successfully.");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Delete Error", $"Failed to delete shape: {ex.Message}");
+        }
     }
 }

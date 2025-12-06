@@ -5,10 +5,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:PaintApp.Views"
     xmlns:viewmodels="using:PaintApp.ViewModels"
+    xmlns:converters="using:PaintApp.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <converters:BoolToVisibilityInverseConverter x:Key="BoolToVisibilityInverseConverter"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <converters:ColorToSolidColorBrushConverter x:Key="ColorToSolidColorBrushConverter"/>
+    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -273,33 +280,153 @@
                                 Message="{x:Bind ViewModel.SelectedShapeInfo, Mode=OneWay}"/>
 
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Position" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <NumberBox Grid.Column="0" Header="X" Margin="0,0,4,0" SpinButtonPlacementMode="Inline"/>
-                                    <NumberBox Grid.Column="1" Header="Y" Margin="4,0,0,0" SpinButtonPlacementMode="Inline"/>
-                                </Grid>
+                                <TextBlock Text="Stroke Properties" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                
+                                <TextBlock Text="Stroke Color" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,8,0,4"/>
+                                <GridView
+                                    ItemsSource="{x:Bind ViewModel.ColorPalette}"
+                                    SelectionMode="Single"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="SelectedShapeStrokeColorPicker_ItemClick"
+                                    MaxHeight="120">
+                                    <GridView.ItemTemplate>
+                                        <DataTemplate x:DataType="Color">
+                                            <Border
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="4"
+                                                BorderThickness="2"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{x:Bind Mode=OneWay}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridView.ItemTemplate>
+                                </GridView>
+                                <Border
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    CornerRadius="4"
+                                    Padding="8,6">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border
+                                            Width="20"
+                                            Height="20"
+                                            CornerRadius="4"
+                                            BorderThickness="2"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="{x:Bind ViewModel.SelectedShapeStrokeColor, Mode=OneWay}"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <TextBlock 
+                                            Text="Current" 
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource CaptionTextBlockStyle}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Stroke Thickness" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,8,0,4"/>
+                                <Slider
+                                    Minimum="0.5"
+                                    Maximum="10"
+                                    Value="{x:Bind ViewModel.SelectedShapeStrokeThickness, Mode=TwoWay}"
+                                    StepFrequency="0.5"
+                                    TickFrequency="1"
+                                    TickPlacement="BottomRight"/>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                    <Run Text="Thickness: "/>
+                                    <Run Text="{x:Bind ViewModel.SelectedShapeStrokeThickness, Mode=OneWay}"/>
+                                    <Run Text=" px"/>
+                                </TextBlock>
                             </StackPanel>
 
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Size" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <NumberBox Grid.Column="0" Header="Width" Margin="0,0,4,0" SpinButtonPlacementMode="Inline"/>
-                                    <NumberBox Grid.Column="1" Header="Height" Margin="4,0,0,0" SpinButtonPlacementMode="Inline"/>
-                                </Grid>
+                                <TextBlock Text="Fill Properties" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                <ToggleSwitch
+                                    IsOn="{x:Bind ViewModel.SelectedShapeHasFill, Mode=TwoWay}"
+                                    OnContent="Fill Enabled"
+                                    OffContent="No Fill"/>
+                                
+                                <GridView
+                                    ItemsSource="{x:Bind ViewModel.ColorPalette}"
+                                    SelectionMode="Single"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="SelectedShapeFillColorPicker_ItemClick"
+                                    IsEnabled="{x:Bind ViewModel.SelectedShapeHasFill, Mode=OneWay}"
+                                    MaxHeight="120">
+                                    <GridView.ItemTemplate>
+                                        <DataTemplate x:DataType="Color">
+                                            <Border
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="4"
+                                                BorderThickness="2"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{x:Bind Mode=OneWay}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridView.ItemTemplate>
+                                </GridView>
+                                <Border
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    CornerRadius="4"
+                                    Padding="8,6"
+                                    Visibility="{x:Bind ViewModel.SelectedShapeHasFill, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border
+                                            Width="20"
+                                            Height="20"
+                                            CornerRadius="4"
+                                            BorderThickness="2"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            Background="{x:Bind ViewModel.SelectedShapeFillColor, Mode=OneWay, Converter={StaticResource ColorToSolidColorBrushConverter}}"/>
+                                        <TextBlock 
+                                            Text="Current" 
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource CaptionTextBlockStyle}"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
 
-                            <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Shape Info" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                <Border
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    CornerRadius="4"
+                                    Padding="12,8">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                            <Run Text="Position: "/>
+                                            <Run Text="{x:Bind ViewModel.SelectedShapeX, Mode=OneWay}"/>
+                                            <Run Text=", "/>
+                                            <Run Text="{x:Bind ViewModel.SelectedShapeY, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                            <Run Text="Size: "/>
+                                            <Run Text="{x:Bind ViewModel.SelectedShapeWidth, Mode=OneWay}"/>
+                                            <Run Text=" × "/>
+                                            <Run Text="{x:Bind ViewModel.SelectedShapeHeight, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <TextBlock 
+                                            Text="Use drag handles to resize and move"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            FontStyle="Italic"
+                                            Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <Button 
+                                Command="{x:Bind ViewModel.DeleteSelectedShapeCommand}"
+                                HorizontalAlignment="Stretch"
+                                Background="{ThemeResource SystemFillColorCriticalBrush}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Glyph="&#xE74D;" FontSize="16"/>
-                                    <TextBlock Text="Delete"/>
+                                    <TextBlock Text="Delete Shape"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>

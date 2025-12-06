@@ -60,6 +60,8 @@ public sealed partial class DrawPage : Page
         Loaded += DrawPage_Loaded;
         ViewModel.CanvasLoaded += ViewModel_CanvasLoaded;
         ViewModel.ShapeCreated += ViewModel_ShapeCreated;
+        ViewModel.ShapeUpdated += ViewModel_ShapeUpdated;
+        ViewModel.ShapeDeleted += ViewModel_ShapeDeleted;
     }
 
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
@@ -90,6 +92,40 @@ public sealed partial class DrawPage : Page
         
         // Shape already added to collection, just render it
         RenderShape(shape);
+    }
+
+    private void ViewModel_ShapeUpdated(object? sender, ShapeModel shape)
+    {
+        // Remove old visual and re-render
+        if (_shapeMap.TryGetValue(shape, out var oldXamlShape))
+        {
+            DrawingCanvas.Children.Remove(oldXamlShape);
+            _shapeMap.Remove(shape);
+        }
+        
+        // Re-render with updated properties
+        RenderShape(shape);
+        
+        // Recreate resize handles if this is the selected shape
+        if (ViewModel.SelectedShape?.Id == shape.Id)
+        {
+            ClearResizeHandles();
+            CreateResizeHandles(shape);
+        }
+    }
+
+    private void ViewModel_ShapeDeleted(object? sender, ShapeModel shape)
+    {
+        // Remove visual from canvas
+        if (_shapeMap.TryGetValue(shape, out var xamlShape))
+        {
+            DrawingCanvas.Children.Remove(xamlShape);
+            _shapeMap.Remove(shape);
+        }
+        
+        // Clear selection UI
+        ClearSelectionBorder();
+        ClearResizeHandles();
     }
 
     private void RenderShapes()
@@ -1076,6 +1112,22 @@ public sealed partial class DrawPage : Page
         if (e.ClickedItem is Color color)
         {
             ViewModel.CurrentFillColor = color;
+        }
+    }
+
+    private void SelectedShapeStrokeColorPicker_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Color color)
+        {
+            ViewModel.SelectedShapeStrokeColor = color;
+        }
+    }
+
+    private void SelectedShapeFillColorPicker_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Color color)
+        {
+            ViewModel.SelectedShapeFillColor = color;
         }
     }
 
