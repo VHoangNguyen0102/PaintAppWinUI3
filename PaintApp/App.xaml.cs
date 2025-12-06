@@ -43,17 +43,21 @@ namespace PaintApp
         {
             var dbPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "paintapp.db");
             
+            // Database Context
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlite($"Data Source={dbPath}");
             });
             
+            // Services
             services.AddScoped<IProfileService, ProfileService>();
             
+            // ViewModels
             services.AddTransient<ViewModels.HomePageViewModel>();
             services.AddTransient<ViewModels.ManagePageViewModel>();
             services.AddTransient<ViewModels.DrawPageViewModel>();
             
+            // Views/Windows
             services.AddTransient<MainWindow>();
         }
 
