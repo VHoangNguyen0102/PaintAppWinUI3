@@ -1,15 +1,27 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using PaintApp.Services;
+using PaintApp.Dialogs;
+using CanvasModel = PaintApp.Models.Canvas;
+using PaintApp.Models;
 
 namespace PaintApp.ViewModels;
 
 public partial class DrawPageViewModel : ViewModelBase
 {
+    private readonly ICanvasService _canvasService;
+    private XamlRoot? _xamlRoot;
+    private Profile? _currentProfile;
+    private CanvasModel? _currentCanvas;
+
     [ObservableProperty]
     private string selectedTool = "Line";
 
@@ -27,6 +39,12 @@ public partial class DrawPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private string selectedShapeInfo = "No shape selected";
+
+    [ObservableProperty]
+    private string canvasInfo = "No canvas loaded";
+
+    [ObservableProperty]
+    private bool isCanvasLoaded;
 
     public ObservableCollection<string> Tools { get; } = new()
     {
@@ -54,8 +72,26 @@ public partial class DrawPageViewModel : ViewModelBase
         Colors.Cyan
     };
 
-    public DrawPageViewModel()
+    public DrawPageViewModel(ICanvasService canvasService)
     {
+        _canvasService = canvasService;
+    }
+
+    public void SetXamlRoot(XamlRoot xamlRoot)
+    {
+        _xamlRoot = xamlRoot;
+    }
+
+    public void SetProfile(Profile profile)
+    {
+        _currentProfile = profile;
+    }
+
+    public void SetCanvas(CanvasModel canvas)
+    {
+        _currentCanvas = canvas;
+        IsCanvasLoaded = true;
+        CanvasInfo = $"{canvas.Name} - {canvas.Width} × {canvas.Height}";
     }
 
     [RelayCommand]
@@ -77,6 +113,30 @@ public partial class DrawPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task NewCanvasAsync()
+    {
+        try
+        {
+            var dialog = new NewCanvasDialog(_currentProfile);
+            dialog.XamlRoot = _xamlRoot;
+
+            var result = await dialog.ShowAsync();
+
+            if (result == ContentDialogResult.Primary && dialog.Canvas != null)
+            {
+                var createdCanvas = await _canvasService.CreateCanvasAsync(dialog.Canvas);
+                SetCanvas(createdCanvas);
+
+                await ShowSuccessDialogAsync("Success", $"Canvas '{createdCanvas.Name}' created successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Create Canvas Error", $"Failed to create canvas: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private void ClearCanvas()
     {
     }
@@ -94,5 +154,35 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
+    }
+
+    private async Task ShowSuccessDialogAsync(string title, string message)
+    {
+        if (_xamlRoot == null) return;
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = message,
+            CloseButtonText = "OK",
+            XamlRoot = _xamlRoot
+        };
+
+        await dialog.ShowAsync();
+    }
+
+    private async Task ShowErrorDialogAsync(string title, string message)
+    {
+        if (_xamlRoot == null) return;
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = message,
+            CloseButtonText = "OK",
+            XamlRoot = _xamlRoot
+        };
+
+        await dialog.ShowAsync();
     }
 }

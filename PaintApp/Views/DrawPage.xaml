@@ -17,6 +17,14 @@
         </Grid.RowDefinitions>
 
         <CommandBar Grid.Row="0" DefaultLabelPosition="Right">
+            <AppBarButton 
+                Icon="Add" 
+                Label="New Canvas" 
+                Command="{x:Bind ViewModel.NewCanvasCommand}"
+                ToolTipService.ToolTip="Create a new canvas"/>
+            
+            <AppBarSeparator/>
+
             <AppBarButton Icon="Edit" Label="Line" Click="ToolButton_Click" Tag="Line"/>
             <AppBarButton Label="Rectangle" Click="ToolButton_Click" Tag="Rectangle">
                 <AppBarButton.Icon>
@@ -212,12 +220,16 @@
                             <TextBlock Text="Canvas Info" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                             <StackPanel Spacing="4">
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                    <Run Text="Status: "/>
+                                    <Run Text="{x:Bind ViewModel.CanvasInfo, Mode=OneWay}"/>
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="Shapes: "/>
                                     <Run Text="0"/>
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                                    <Run Text="Canvas Size: "/>
-                                    <Run Text="800 x 600"/>
+                                    <Run Text="Loaded: "/>
+                                    <Run Text="{x:Bind ViewModel.IsCanvasLoaded, Mode=OneWay}"/>
                                 </TextBlock>
                             </StackPanel>
                         </StackPanel>

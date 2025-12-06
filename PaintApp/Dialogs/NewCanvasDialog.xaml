@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="PaintApp.Dialogs.NewCanvasDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Create New Canvas"
+    PrimaryButtonText="Create"
+    SecondaryButtonText="Cancel"
+    DefaultButton="Primary"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+    SecondaryButtonClick="ContentDialog_SecondaryButtonClick">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="500">
+        <StackPanel Spacing="16" Padding="4">
+            
+            <!-- Canvas Name -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Canvas Name" FontWeight="SemiBold"/>
+                <TextBox 
+                    x:Name="NameTextBox" 
+                    PlaceholderText="Enter canvas name"
+                    TextChanged="NameTextBox_TextChanged"/>
+                <TextBlock 
+                    x:Name="NameErrorText" 
+                    Text="Canvas name is required" 
+                    Foreground="Red" 
+                    Visibility="Collapsed"
+                    FontSize="12"/>
+            </StackPanel>
+
+            <!-- Canvas Size -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Canvas Size" FontWeight="SemiBold"/>
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="Width (px)" FontSize="12" Foreground="Gray"/>
+                        <NumberBox 
+                            x:Name="WidthNumberBox"
+                            Value="800"
+                            Minimum="400"
+                            Maximum="2000"
+                            SpinButtonPlacementMode="Inline"
+                            ValueChanged="SizeNumberBox_ValueChanged"/>
+                        <TextBlock 
+                            x:Name="WidthErrorText" 
+                            Text="Width must be between 400-2000" 
+                            Foreground="Red" 
+                            Visibility="Collapsed"
+                            FontSize="11"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Height (px)" FontSize="12" Foreground="Gray"/>
+                        <NumberBox 
+                            x:Name="HeightNumberBox"
+                            Value="600"
+                            Minimum="400"
+                            Maximum="2000"
+                            SpinButtonPlacementMode="Inline"
+                            ValueChanged="SizeNumberBox_ValueChanged"/>
+                        <TextBlock 
+                            x:Name="HeightErrorText" 
+                            Text="Height must be between 400-2000" 
+                            Foreground="Red" 
+                            Visibility="Collapsed"
+                            FontSize="11"/>
+                    </StackPanel>
+                </Grid>
+                
+                <!-- Size Presets -->
+                <Grid ColumnSpacing="8" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Button 
+                        Grid.Column="0"
+                        Content="HD (1280×720)"
+                        HorizontalAlignment="Stretch"
+                        Click="PresetHD_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        FontSize="11"
+                        Padding="8,6"/>
+                    
+                    <Button 
+                        Grid.Column="1"
+                        Content="Full HD (1920×1080)"
+                        HorizontalAlignment="Stretch"
+                        Click="PresetFullHD_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        FontSize="11"
+                        Padding="8,6"/>
+                    
+                    <Button 
+                        Grid.Column="2"
+                        Content="Square (1000×1000)"
+                        HorizontalAlignment="Stretch"
+                        Click="PresetSquare_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        FontSize="11"
+                        Padding="8,6"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Background Color -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Background Color" FontWeight="SemiBold"/>
+                <ColorPicker 
+                    x:Name="BackgroundColorPicker"
+                    ColorSpectrumShape="Ring"
+                    IsMoreButtonVisible="True"
+                    IsColorSliderVisible="True"
+                    IsColorChannelTextInputVisible="True"
+                    IsHexInputVisible="True"/>
+            </StackPanel>
+
+            <!-- Preview Info -->
+            <Border 
+                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                CornerRadius="4"
+                Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock 
+                        Text="Canvas Preview" 
+                        FontWeight="SemiBold"
+                        FontSize="12"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontSize="11" Foreground="Gray"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="PreviewName" Text="—" FontSize="11" FontWeight="SemiBold"/>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Size:" FontSize="11" Foreground="Gray"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="PreviewSize" Text="800 × 600 px" FontSize="11" FontWeight="SemiBold"/>
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Aspect:" FontSize="11" Foreground="Gray"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="PreviewAspect" Text="4:3" FontSize="11" FontWeight="SemiBold"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

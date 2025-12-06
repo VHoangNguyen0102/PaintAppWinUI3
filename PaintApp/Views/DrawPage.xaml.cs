@@ -5,9 +5,13 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Microsoft.UI.Xaml.Navigation;
 using PaintApp.ViewModels;
+using PaintApp.Models;
 using Windows.Foundation;
 using Windows.UI;
+using XamlShape = Microsoft.UI.Xaml.Shapes.Shape;
+using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
 
 namespace PaintApp.Views;
 
@@ -15,13 +19,30 @@ public sealed partial class DrawPage : Page
 {
     public DrawPageViewModel ViewModel { get; }
     private Point _startPoint;
-    private Shape? _currentShape;
+    private XamlShape? _currentShape;
 
     public DrawPage()
     {
         InitializeComponent();
         ViewModel = App.ServiceProvider.GetRequiredService<DrawPageViewModel>();
         DataContext = ViewModel;
+        
+        Loaded += DrawPage_Loaded;
+    }
+
+    private void DrawPage_Loaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SetXamlRoot(this.XamlRoot);
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        
+        if (e.Parameter is Profile profile)
+        {
+            ViewModel.SetProfile(profile);
+        }
     }
 
     private void ToolButton_Click(object sender, RoutedEventArgs e)
@@ -80,8 +101,8 @@ public sealed partial class DrawPage : Page
 
         if (_currentShape != null && _currentShape is not Line)
         {
-            Canvas.SetLeft(_currentShape, _startPoint.X);
-            Canvas.SetTop(_currentShape, _startPoint.Y);
+            XamlCanvas.SetLeft(_currentShape, _startPoint.X);
+            XamlCanvas.SetTop(_currentShape, _startPoint.Y);
         }
 
         if (_currentShape != null)
@@ -110,8 +131,8 @@ public sealed partial class DrawPage : Page
                 var height = Math.Abs(currentPoint.Y - _startPoint.Y);
                 rect.Width = width;
                 rect.Height = height;
-                Canvas.SetLeft(rect, Math.Min(_startPoint.X, currentPoint.X));
-                Canvas.SetTop(rect, Math.Min(_startPoint.Y, currentPoint.Y));
+                XamlCanvas.SetLeft(rect, Math.Min(_startPoint.X, currentPoint.X));
+                XamlCanvas.SetTop(rect, Math.Min(_startPoint.Y, currentPoint.Y));
                 break;
 
             case Ellipse ellipse when ViewModel.SelectedTool == "Circle":
@@ -120,8 +141,8 @@ public sealed partial class DrawPage : Page
                     Math.Abs(currentPoint.Y - _startPoint.Y));
                 ellipse.Width = radius;
                 ellipse.Height = radius;
-                Canvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
-                Canvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
+                XamlCanvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
+                XamlCanvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
                 break;
 
             case Ellipse ellipse:
@@ -129,8 +150,8 @@ public sealed partial class DrawPage : Page
                 var h = Math.Abs(currentPoint.Y - _startPoint.Y);
                 ellipse.Width = w;
                 ellipse.Height = h;
-                Canvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
-                Canvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
+                XamlCanvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
+                XamlCanvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
                 break;
         }
     }
