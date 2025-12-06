@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using PaintApp.ViewModels;
@@ -16,6 +17,13 @@ public sealed partial class ManagePage : Page
         InitializeComponent();
         ViewModel = App.ServiceProvider.GetRequiredService<ManagePageViewModel>();
         DataContext = ViewModel;
+        
+        Loaded += ManagePage_Loaded;
+    }
+
+    private void ManagePage_Loaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SetXamlRoot(this.XamlRoot);
     }
 
     private void CanvasGridView_ItemClick(object sender, ItemClickEventArgs e)
@@ -28,6 +36,14 @@ public sealed partial class ManagePage : Page
                 Canvas = canvas,
                 Profile = ViewModel.SelectedProfile
             });
+        }
+    }
+
+    private async void DeleteCanvasButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is CanvasModel canvas)
+        {
+            await ViewModel.DeleteCanvasCommand.ExecuteAsync(canvas);
         }
     }
 }
