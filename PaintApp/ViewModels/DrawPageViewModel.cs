@@ -23,6 +23,7 @@ public partial class DrawPageViewModel : ViewModelBase
 {
     private readonly ICanvasService _canvasService;
     private readonly IShapeService _shapeService;
+    private readonly IProfileService _profileService;
     private XamlRoot? _xamlRoot;
     private Profile? _currentProfile;
 
@@ -124,10 +125,11 @@ public partial class DrawPageViewModel : ViewModelBase
         Colors.Cyan
     };
 
-    public DrawPageViewModel(ICanvasService canvasService, IShapeService shapeService)
+    public DrawPageViewModel(ICanvasService canvasService, IShapeService shapeService, IProfileService profileService)
     {
         _canvasService = canvasService;
         _shapeService = shapeService;
+        _profileService = profileService;
     }
 
     public void SetXamlRoot(XamlRoot xamlRoot)
@@ -335,6 +337,35 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
+    }
+
+    [RelayCommand]
+    private async Task SaveAsDefaultAsync()
+    {
+        if (_currentProfile == null)
+        {
+            await ShowErrorDialogAsync("Error", "No profile loaded.");
+            return;
+        }
+
+        try
+        {
+            // Update profile with current settings
+            _currentProfile.DefaultStrokeColor = ColorToHex(CurrentStrokeColor);
+            _currentProfile.DefaultFillColor = ColorToHex(CurrentFillColor ?? Colors.Transparent);
+            _currentProfile.DefaultStrokeThickness = CurrentStrokeThickness;
+
+            // Save to database
+            await _profileService.UpdateProfileAsync(_currentProfile);
+
+            await ShowSuccessDialogAsync("Settings Saved", 
+                "Current drawing settings have been saved as default for this profile.");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Save Settings Error", 
+                $"Failed to save settings: {ex.Message}");
+        }
     }
 
     private async Task ShowSuccessDialogAsync(string title, string message)

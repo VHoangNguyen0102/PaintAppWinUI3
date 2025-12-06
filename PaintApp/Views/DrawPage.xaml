@@ -213,6 +213,24 @@
                                 <TextBlock Text="{x:Bind ViewModel.SelectedTool, Mode=OneWay}" Foreground="White" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                             </Border>
                         </StackPanel>
+
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Default Settings" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <Button
+                                Command="{x:Bind ViewModel.SaveAsDefaultCommand}"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource AccentButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE74E;" FontSize="16"/>
+                                    <TextBlock Text="Save as Default"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock 
+                                Text="Save current stroke, fill, and thickness settings as default for this profile" 
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap"/>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

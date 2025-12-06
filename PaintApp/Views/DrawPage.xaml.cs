@@ -403,7 +403,7 @@ public sealed partial class DrawPage : Page
     {
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
 
-        // Handle Triangle with direct drawing (not polygon mode)
+        // Handle Triangle with multi-click (3 points)
         if (ViewModel.SelectedTool == "Triangle")
         {
             HandleTriangleClick(currentPoint);
@@ -531,32 +531,30 @@ public sealed partial class DrawPage : Page
                 break;
 
             case Ellipse ellipse when ViewModel.SelectedTool == "Circle":
+                // Calculate circle with same logic as save
+                var circleCenterX = (_startPoint.X + currentPoint.X) / 2;
+                var circleCenterY = (_startPoint.Y + currentPoint.Y) / 2;
                 var radius = Math.Max(
-                    Math.Abs(currentPoint.X - _startPoint.X),
-                    Math.Abs(currentPoint.Y - _startPoint.Y));
-                ellipse.Width = radius;
-                ellipse.Height = radius;
-                XamlCanvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
-                XamlCanvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
+                    Math.Abs(currentPoint.X - _startPoint.X) / 2,
+                    Math.Abs(currentPoint.Y - _startPoint.Y) / 2);
+                
+                ellipse.Width = radius * 2;
+                ellipse.Height = radius * 2;
+                XamlCanvas.SetLeft(ellipse, circleCenterX - radius);
+                XamlCanvas.SetTop(ellipse, circleCenterY - radius);
                 break;
 
             case Ellipse ellipse:
-                var w = Math.Abs(currentPoint.X - _startPoint.X);
-                var h = Math.Abs(currentPoint.Y - _startPoint.Y);
-                ellipse.Width = w;
-                ellipse.Height = h;
-                XamlCanvas.SetLeft(ellipse, Math.Min(_startPoint.X, currentPoint.X));
-                XamlCanvas.SetTop(ellipse, Math.Min(_startPoint.Y, currentPoint.Y));
-                break;
-
-            case Polygon polygon when ViewModel.SelectedTool == "Triangle":
-                // Update triangle points based on current mouse position
-                var trianglePoints = DrawingHelper.CalculateTrianglePoints(_startPoint, currentPoint);
-                polygon.Points.Clear();
-                foreach (var point in trianglePoints)
-                {
-                    polygon.Points.Add(point);
-                }
+                // Calculate oval with same logic as save
+                var ovalCenterX = (_startPoint.X + currentPoint.X) / 2;
+                var ovalCenterY = (_startPoint.Y + currentPoint.Y) / 2;
+                var radiusX = Math.Abs(currentPoint.X - _startPoint.X) / 2;
+                var radiusY = Math.Abs(currentPoint.Y - _startPoint.Y) / 2;
+                
+                ellipse.Width = radiusX * 2;
+                ellipse.Height = radiusY * 2;
+                XamlCanvas.SetLeft(ellipse, ovalCenterX - radiusX);
+                XamlCanvas.SetTop(ellipse, ovalCenterY - radiusY);
                 break;
         }
     }
@@ -568,9 +566,12 @@ public sealed partial class DrawPage : Page
         _isDrawing = false;
         DrawingCanvas.ReleasePointerCapture(e.Pointer);
 
-        // Save shape to database
-        if (_endPoint.HasValue)
+        // Save shape to database (but remove preview first)
+        if (_endPoint.HasValue && _currentShape != null)
         {
+            // Remove the preview shape before saving
+            DrawingCanvas.Children.Remove(_currentShape);
+            
             await SaveCurrentShapeAsync(_startPoint, _endPoint.Value);
         }
 
@@ -632,14 +633,6 @@ public sealed partial class DrawPage : Page
                     radius = radius
                 };
                 geometryData = JsonSerializer.Serialize(circleData);
-                break;
-
-            case "Triangle":
-                // Calculate triangle points from start and end
-                var trianglePoints = DrawingHelper.CalculateTrianglePoints(startPoint, endPoint);
-                var trianglePointData = trianglePoints.Select(p => new { x = p.X, y = p.Y });
-                var triangleData = new { points = trianglePointData };
-                geometryData = JsonSerializer.Serialize(triangleData);
                 break;
         }
 
@@ -815,27 +808,81 @@ public sealed partial class DrawPage : Page
 
     private void HandleTriangleClick(Point point)
     {
-        // Triangle uses direct drawing (not polygon mode)
-        _startPoint = point;
-        _isDrawing = true;
-        
-        // Create preview triangle
-        var trianglePoints = DrawingHelper.CalculateTrianglePoints(_startPoint, _startPoint);
-        _currentShape = new Polygon
+        if (!ViewModel.IsDrawingPolygon)
+        {
+            ViewModel.StartPolygonDrawing();
+            ClearTemporaryPolygonDrawing();
+        }
+
+        ViewModel.AddPolygonPoint(point);
+        DrawPointMarker(point);
+
+        if (ViewModel.PolygonPoints.Count > 1)
+        {
+            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
+            DrawTemporaryLine(previousPoint, point);
+        }
+
+        // Auto-complete triangle when 3 points are added
+        if (ViewModel.PolygonPoints.Count == 3)
+        {
+            CompleteTriangle();
+        }
+    }
+
+    private async void CompleteTriangle()
+    {
+        if (ViewModel.PolygonPoints.Count != 3)
+            return;
+
+        var firstPoint = ViewModel.PolygonPoints[0];
+        var lastPoint = ViewModel.PolygonPoints[2];
+        DrawTemporaryLine(lastPoint, firstPoint);
+
+        var polygon = new Polygon
         {
             Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
             Fill = GetFillBrush(),
             StrokeThickness = ViewModel.CurrentStrokeThickness
         };
         
-        ApplyDashStyle(_currentShape);
-        
-        foreach (var p in trianglePoints)
+        ApplyDashStyle(polygon);
+
+        foreach (var point in ViewModel.PolygonPoints)
         {
-            ((Polygon)_currentShape).Points.Add(p);
+            polygon.Points.Add(point);
         }
-        
-        DrawingCanvas.Children.Add(_currentShape);
-        DrawingCanvas.CapturePointer(null);
+
+        ClearTemporaryPolygonDrawing();
+        DrawingCanvas.Children.Add(polygon);
+
+        // Save to database with points array format
+        var trianglePointData = ViewModel.PolygonPoints.Select(p => new { x = p.X, y = p.Y });
+        var triangleData = new { points = trianglePointData };
+        var geometryData = JsonSerializer.Serialize(triangleData);
+
+        var bounds = DrawingHelper.CalculateBoundingRect(
+            new Point(ViewModel.PolygonPoints.Min(p => p.X), ViewModel.PolygonPoints.Min(p => p.Y)),
+            new Point(ViewModel.PolygonPoints.Max(p => p.X), ViewModel.PolygonPoints.Max(p => p.Y))
+        );
+
+        var shape = new ShapeModel
+        {
+            Type = "Triangle",
+            StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
+            FillColor = ViewModel.IsFillEnabled && ViewModel.CurrentFillColor.HasValue 
+                ? ColorToHex(ViewModel.CurrentFillColor.Value) 
+                : null,
+            StrokeThickness = ViewModel.CurrentStrokeThickness,
+            GeometryData = geometryData,
+            X = bounds.X,
+            Y = bounds.Y,
+            Width = bounds.Width,
+            Height = bounds.Height,
+            CreatedAt = DateTime.Now
+        };
+
+        await ViewModel.SaveShapeAsync(shape);
+        ViewModel.ClearPolygonDrawing();
     }
 }
