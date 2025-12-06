@@ -423,27 +423,9 @@ public sealed partial class DrawPage : Page
         
         _currentShape = ViewModel.SelectedTool switch
         {
-            "Line" => new Line
-            {
-                X1 = _startPoint.X,
-                Y1 = _startPoint.Y,
-                X2 = _startPoint.X,
-                Y2 = _startPoint.Y,
-                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-                StrokeThickness = ViewModel.CurrentStrokeThickness
-            },
-            "Rectangle" => new Rectangle
-            {
-                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-                Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
-                StrokeThickness = ViewModel.CurrentStrokeThickness
-            },
-            "Oval" or "Circle" => new Ellipse
-            {
-                Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-                Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
-                StrokeThickness = ViewModel.CurrentStrokeThickness
-            },
+            "Line" => CreateLine(_startPoint),
+            "Rectangle" => CreateRectangle(),
+            "Oval" or "Circle" => CreateEllipse(),
             _ => null
         };
 
@@ -459,6 +441,71 @@ public sealed partial class DrawPage : Page
         }
 
         DrawingCanvas.CapturePointer(e.Pointer);
+    }
+
+    private Line CreateLine(Point startPoint)
+    {
+        var line = new Line
+        {
+            X1 = startPoint.X,
+            Y1 = startPoint.Y,
+            X2 = startPoint.X,
+            Y2 = startPoint.Y,
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(line);
+        return line;
+    }
+
+    private Rectangle CreateRectangle()
+    {
+        var rectangle = new Rectangle
+        {
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = GetFillBrush(),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(rectangle);
+        return rectangle;
+    }
+
+    private Ellipse CreateEllipse()
+    {
+        var ellipse = new Ellipse
+        {
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = GetFillBrush(),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(ellipse);
+        return ellipse;
+    }
+
+    private SolidColorBrush GetFillBrush()
+    {
+        if (!ViewModel.IsFillEnabled)
+            return new SolidColorBrush(Colors.Transparent);
+        
+        return new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent);
+    }
+
+    private void ApplyDashStyle(XamlShape shape)
+    {
+        if (ViewModel.SelectedDashStyle == "Solid")
+            return;
+        
+        shape.StrokeDashArray = ViewModel.SelectedDashStyle switch
+        {
+            "Dash" => new DoubleCollection { 4, 2 },
+            "Dot" => new DoubleCollection { 1, 2 },
+            "DashDot" => new DoubleCollection { 4, 2, 1, 2 },
+            "DashDotDot" => new DoubleCollection { 4, 2, 1, 2, 1, 2 },
+            _ => null
+        };
     }
 
     private void Canvas_PointerMoved(object sender, PointerRoutedEventArgs e)
@@ -603,7 +650,9 @@ public sealed partial class DrawPage : Page
         {
             Type = shapeType,
             StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
-            FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
+            FillColor = ViewModel.IsFillEnabled && ViewModel.CurrentFillColor.HasValue 
+                ? ColorToHex(ViewModel.CurrentFillColor.Value) 
+                : null,
             StrokeThickness = ViewModel.CurrentStrokeThickness,
             GeometryData = geometryData,
             X = bounds.X,
@@ -705,9 +754,11 @@ public sealed partial class DrawPage : Page
         var polygon = new Polygon
         {
             Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+            Fill = GetFillBrush(),
             StrokeThickness = ViewModel.CurrentStrokeThickness
         };
+        
+        ApplyDashStyle(polygon);
 
         foreach (var point in ViewModel.PolygonPoints)
         {
@@ -731,7 +782,9 @@ public sealed partial class DrawPage : Page
         {
             Type = ViewModel.SelectedTool,
             StrokeColor = ColorToHex(ViewModel.CurrentStrokeColor),
-            FillColor = ViewModel.CurrentFillColor.HasValue ? ColorToHex(ViewModel.CurrentFillColor.Value) : null,
+            FillColor = ViewModel.IsFillEnabled && ViewModel.CurrentFillColor.HasValue 
+                ? ColorToHex(ViewModel.CurrentFillColor.Value) 
+                : null,
             StrokeThickness = ViewModel.CurrentStrokeThickness,
             GeometryData = geometryData,
             X = bounds.X,
@@ -771,9 +824,11 @@ public sealed partial class DrawPage : Page
         _currentShape = new Polygon
         {
             Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent),
+            Fill = GetFillBrush(),
             StrokeThickness = ViewModel.CurrentStrokeThickness
         };
+        
+        ApplyDashStyle(_currentShape);
         
         foreach (var p in trianglePoints)
         {
@@ -781,6 +836,6 @@ public sealed partial class DrawPage : Page
         }
         
         DrawingCanvas.Children.Add(_currentShape);
-        DrawingCanvas.CapturePointer(null); // We'll handle in PointerMoved
+        DrawingCanvas.CapturePointer(null);
     }
 }

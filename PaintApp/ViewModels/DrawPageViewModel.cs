@@ -45,6 +45,12 @@ public partial class DrawPageViewModel : ViewModelBase
     private double currentStrokeThickness = 2.0;
 
     [ObservableProperty]
+    private bool isFillEnabled = true;
+
+    [ObservableProperty]
+    private string selectedDashStyle = "Solid";
+
+    [ObservableProperty]
     private bool isShapeSelected;
 
     [ObservableProperty]
@@ -91,6 +97,15 @@ public partial class DrawPageViewModel : ViewModelBase
         "Circle",
         "Triangle",
         "Polygon"
+    };
+
+    public ObservableCollection<string> DashStyles { get; } = new()
+    {
+        "Solid",
+        "Dash",
+        "Dot",
+        "DashDot",
+        "DashDotDot"
     };
 
     public ObservableCollection<Color> ColorPalette { get; } = new()
