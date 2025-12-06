@@ -6,12 +6,14 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI;
 using PaintApp.ViewModels;
 using PaintApp.Models;
 using Windows.Foundation;
 using Windows.UI;
 using XamlShape = Microsoft.UI.Xaml.Shapes.Shape;
 using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
+using CanvasModel = PaintApp.Models.Canvas;
 
 namespace PaintApp.Views;
 
@@ -28,11 +30,47 @@ public sealed partial class DrawPage : Page
         DataContext = ViewModel;
         
         Loaded += DrawPage_Loaded;
+        ViewModel.CanvasLoaded += ViewModel_CanvasLoaded;
     }
 
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
     {
         ViewModel.SetXamlRoot(this.XamlRoot);
+    }
+
+    private void ViewModel_CanvasLoaded(object? sender, CanvasModel canvas)
+    {
+        // Update the drawing canvas size and background
+        DrawingCanvas.Width = canvas.Width;
+        DrawingCanvas.Height = canvas.Height;
+        DrawingCanvas.Background = new SolidColorBrush(ParseColor(canvas.BackgroundColor));
+        
+        // Clear existing shapes
+        DrawingCanvas.Children.Clear();
+    }
+
+    private Color ParseColor(string hexColor)
+    {
+        try
+        {
+            hexColor = hexColor.TrimStart('#');
+            
+            if (hexColor.Length == 6)
+            {
+                hexColor = "FF" + hexColor;
+            }
+            
+            var a = Convert.ToByte(hexColor.Substring(0, 2), 16);
+            var r = Convert.ToByte(hexColor.Substring(2, 2), 16);
+            var g = Convert.ToByte(hexColor.Substring(4, 2), 16);
+            var b = Convert.ToByte(hexColor.Substring(6, 2), 16);
+            
+            return Color.FromArgb(a, r, g, b);
+        }
+        catch
+        {
+            return Colors.White;
+        }
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

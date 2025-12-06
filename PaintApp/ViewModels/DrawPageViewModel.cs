@@ -20,7 +20,9 @@ public partial class DrawPageViewModel : ViewModelBase
     private readonly ICanvasService _canvasService;
     private XamlRoot? _xamlRoot;
     private Profile? _currentProfile;
-    private CanvasModel? _currentCanvas;
+
+    [ObservableProperty]
+    private CanvasModel? currentCanvas;
 
     [ObservableProperty]
     private string selectedTool = "Line";
@@ -45,6 +47,17 @@ public partial class DrawPageViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool isCanvasLoaded;
+
+    [ObservableProperty]
+    private int canvasWidth = 800;
+
+    [ObservableProperty]
+    private int canvasHeight = 600;
+
+    [ObservableProperty]
+    private string canvasBackgroundColor = "#FFFFFF";
+
+    public event EventHandler<CanvasModel>? CanvasLoaded;
 
     public ObservableCollection<string> Tools { get; } = new()
     {
@@ -85,13 +98,54 @@ public partial class DrawPageViewModel : ViewModelBase
     public void SetProfile(Profile profile)
     {
         _currentProfile = profile;
+        
+        // Load default canvas settings from profile
+        if (!IsCanvasLoaded)
+        {
+            CanvasWidth = profile.DefaultCanvasWidth;
+            CanvasHeight = profile.DefaultCanvasHeight;
+            CanvasBackgroundColor = profile.DefaultCanvasBackgroundColor;
+            StrokeColor = ParseColor(profile.DefaultStrokeColor);
+            FillColor = ParseColor(profile.DefaultFillColor);
+            StrokeThickness = profile.DefaultStrokeThickness;
+        }
     }
 
-    public void SetCanvas(CanvasModel canvas)
+    public void LoadCanvas(CanvasModel canvas)
     {
-        _currentCanvas = canvas;
+        CurrentCanvas = canvas;
         IsCanvasLoaded = true;
         CanvasInfo = $"{canvas.Name} - {canvas.Width} × {canvas.Height}";
+        CanvasWidth = canvas.Width;
+        CanvasHeight = canvas.Height;
+        CanvasBackgroundColor = canvas.BackgroundColor;
+        
+        // Raise event to notify DrawPage
+        CanvasLoaded?.Invoke(this, canvas);
+    }
+
+    private Color ParseColor(string hexColor)
+    {
+        try
+        {
+            hexColor = hexColor.TrimStart('#');
+            
+            if (hexColor.Length == 6)
+            {
+                hexColor = "FF" + hexColor;
+            }
+            
+            var a = Convert.ToByte(hexColor.Substring(0, 2), 16);
+            var r = Convert.ToByte(hexColor.Substring(2, 2), 16);
+            var g = Convert.ToByte(hexColor.Substring(4, 2), 16);
+            var b = Convert.ToByte(hexColor.Substring(6, 2), 16);
+            
+            return Color.FromArgb(a, r, g, b);
+        }
+        catch
+        {
+            return Colors.White;
+        }
     }
 
     [RelayCommand]
@@ -115,6 +169,12 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task NewCanvasAsync()
     {
+        if (_currentProfile == null)
+        {
+            await ShowErrorDialogAsync("Error", "Please select a profile first.");
+            return;
+        }
+
         try
         {
             var dialog = new NewCanvasDialog(_currentProfile);
@@ -125,7 +185,7 @@ public partial class DrawPageViewModel : ViewModelBase
             if (result == ContentDialogResult.Primary && dialog.Canvas != null)
             {
                 var createdCanvas = await _canvasService.CreateCanvasAsync(dialog.Canvas);
-                SetCanvas(createdCanvas);
+                LoadCanvas(createdCanvas);
 
                 await ShowSuccessDialogAsync("Success", $"Canvas '{createdCanvas.Name}' created successfully!");
             }
@@ -139,21 +199,25 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private void ClearCanvas()
     {
+        // Will be implemented later
     }
 
     [RelayCommand]
     private void Undo()
     {
+        // Will be implemented later
     }
 
     [RelayCommand]
     private void Redo()
     {
+        // Will be implemented later
     }
 
     [RelayCommand]
     private void Save()
     {
+        // Will be implemented later
     }
 
     private async Task ShowSuccessDialogAsync(string title, string message)
