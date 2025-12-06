@@ -1148,6 +1148,10 @@ public sealed partial class DrawPage : Page
     {
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
 
+        // Check if point is within canvas bounds
+        if (!IsPointInCanvasBounds(currentPoint))
+            return;
+
         // Handle Select tool
         if (ViewModel.SelectedTool == "Select")
         {
@@ -1197,69 +1201,18 @@ public sealed partial class DrawPage : Page
         DrawingCanvas.CapturePointer(e.Pointer);
     }
 
-    private Line CreateLine(Point startPoint)
+    private bool IsPointInCanvasBounds(Point point)
     {
-        var line = new Line
-        {
-            X1 = startPoint.X,
-            Y1 = startPoint.Y,
-            X2 = startPoint.X,
-            Y2 = startPoint.Y,
-            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            StrokeThickness = ViewModel.CurrentStrokeThickness
-        };
-        
-        ApplyDashStyle(line);
-        return line;
+        return point.X >= 0 && point.X <= DrawingCanvas.ActualWidth &&
+               point.Y >= 0 && point.Y <= DrawingCanvas.ActualHeight;
     }
 
-    private Rectangle CreateRectangle()
+    private Point ClampPointToCanvas(Point point)
     {
-        var rectangle = new Rectangle
-        {
-            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = GetFillBrush(),
-            StrokeThickness = ViewModel.CurrentStrokeThickness
-        };
-        
-        ApplyDashStyle(rectangle);
-        return rectangle;
-    }
-
-    private Ellipse CreateEllipse()
-    {
-        var ellipse = new Ellipse
-        {
-            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
-            Fill = GetFillBrush(),
-            StrokeThickness = ViewModel.CurrentStrokeThickness
-        };
-        
-        ApplyDashStyle(ellipse);
-        return ellipse;
-    }
-
-    private SolidColorBrush GetFillBrush()
-    {
-        if (!ViewModel.IsFillEnabled)
-            return new SolidColorBrush(Colors.Transparent);
-        
-        return new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent);
-    }
-
-    private void ApplyDashStyle(XamlShape shape)
-    {
-        if (ViewModel.SelectedDashStyle == "Solid")
-            return;
-        
-        shape.StrokeDashArray = ViewModel.SelectedDashStyle switch
-        {
-            "Dash" => new DoubleCollection { 4, 2 },
-            "Dot" => new DoubleCollection { 1, 2 },
-            "DashDot" => new DoubleCollection { 4, 2, 1, 2 },
-            "DashDotDot" => new DoubleCollection { 4, 2, 1, 2, 1, 2 },
-            _ => null
-        };
+        return new Point(
+            Math.Max(0, Math.Min(point.X, DrawingCanvas.ActualWidth)),
+            Math.Max(0, Math.Min(point.Y, DrawingCanvas.ActualHeight))
+        );
     }
 
     private void Canvas_PointerMoved(object sender, PointerRoutedEventArgs e)
@@ -1267,6 +1220,10 @@ public sealed partial class DrawPage : Page
         if (!_isDrawing || _currentShape == null) return;
 
         var currentPoint = e.GetCurrentPoint(DrawingCanvas).Position;
+        
+        // Clamp point to canvas bounds
+        currentPoint = ClampPointToCanvas(currentPoint);
+        
         _endPoint = currentPoint;
 
         switch (_currentShape)
@@ -1420,38 +1377,69 @@ public sealed partial class DrawPage : Page
         }
     }
 
-    private void HandlePolygonClick(Point point)
+    private Line CreateLine(Point startPoint)
     {
-        // Check if clicking on first point to close polygon
-        if (ViewModel.IsDrawingPolygon && ViewModel.PolygonPoints.Count >= 3)
+        var line = new Line
         {
-            var firstPoint = ViewModel.PolygonPoints[0];
-            var distance = DrawingHelper.CalculateDistance(point, firstPoint);
-            
-            // If clicking close to first point, complete polygon
-            if (distance <= 10) // 10 pixel tolerance
-            {
-                CompletePolygon();
-                return;
-            }
-        }
+            X1 = startPoint.X,
+            Y1 = startPoint.Y,
+            X2 = startPoint.X,
+            Y2 = startPoint.Y,
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(line);
+        return line;
+    }
 
-        if (!ViewModel.IsDrawingPolygon)
+    private Rectangle CreateRectangle()
+    {
+        var rectangle = new Rectangle
         {
-            ViewModel.StartPolygonDrawing();
-            ClearTemporaryPolygonDrawing();
-        }
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = GetFillBrush(),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(rectangle);
+        return rectangle;
+    }
 
-        ViewModel.AddPolygonPoint(point);
-        DrawPointMarker(point);
-
-        if (ViewModel.PolygonPoints.Count > 1)
+    private Ellipse CreateEllipse()
+    {
+        var ellipse = new Ellipse
         {
-            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
-            DrawTemporaryLine(previousPoint, point);
-        }
+            Stroke = new SolidColorBrush(ViewModel.CurrentStrokeColor),
+            Fill = GetFillBrush(),
+            StrokeThickness = ViewModel.CurrentStrokeThickness
+        };
+        
+        ApplyDashStyle(ellipse);
+        return ellipse;
+    }
 
-        // Triangle auto-complete is handled in ViewModel
+    private SolidColorBrush GetFillBrush()
+    {
+        if (!ViewModel.IsFillEnabled)
+            return new SolidColorBrush(Colors.Transparent);
+        
+        return new SolidColorBrush(ViewModel.CurrentFillColor ?? Colors.Transparent);
+    }
+
+    private void ApplyDashStyle(XamlShape shape)
+    {
+        if (ViewModel.SelectedDashStyle == "Solid")
+            return;
+        
+        shape.StrokeDashArray = ViewModel.SelectedDashStyle switch
+        {
+            "Dash" => new DoubleCollection { 4, 2 },
+            "Dot" => new DoubleCollection { 1, 2 },
+            "DashDot" => new DoubleCollection { 4, 2, 1, 2 },
+            "DashDotDot" => new DoubleCollection { 4, 2, 1, 2, 1, 2 },
+            _ => null
+        };
     }
 
     private void DrawPointMarker(Point point)
@@ -1487,6 +1475,68 @@ public sealed partial class DrawPage : Page
 
         DrawingCanvas.Children.Add(line);
         _polygonLines.Add(line);
+    }
+
+    private void HandlePolygonClick(Point point)
+    {
+        // Clamp point to canvas bounds
+        point = ClampPointToCanvas(point);
+        
+        // Check if clicking on first point to close polygon
+        if (ViewModel.IsDrawingPolygon && ViewModel.PolygonPoints.Count >= 3)
+        {
+            var firstPoint = ViewModel.PolygonPoints[0];
+            var distance = DrawingHelper.CalculateDistance(point, firstPoint);
+            
+            // If clicking close to first point, complete polygon
+            if (distance <= 10) // 10 pixel tolerance
+            {
+                CompletePolygon();
+                return;
+            }
+        }
+
+        if (!ViewModel.IsDrawingPolygon)
+        {
+            ViewModel.StartPolygonDrawing();
+            ClearTemporaryPolygonDrawing();
+        }
+
+        ViewModel.AddPolygonPoint(point);
+        DrawPointMarker(point);
+
+        if (ViewModel.PolygonPoints.Count > 1)
+        {
+            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
+            DrawTemporaryLine(previousPoint, point);
+        }
+    }
+
+    private void HandleTriangleClick(Point point)
+    {
+        // Clamp point to canvas bounds
+        point = ClampPointToCanvas(point);
+        
+        if (!ViewModel.IsDrawingPolygon)
+        {
+            ViewModel.StartPolygonDrawing();
+            ClearTemporaryPolygonDrawing();
+        }
+
+        ViewModel.AddPolygonPoint(point);
+        DrawPointMarker(point);
+
+        if (ViewModel.PolygonPoints.Count > 1)
+        {
+            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
+            DrawTemporaryLine(previousPoint, point);
+        }
+
+        // Auto-complete triangle when 3 points are added
+        if (ViewModel.PolygonPoints.Count == 3)
+        {
+            CompleteTriangle();
+        }
     }
 
     private async void CompletePolygon()
@@ -1542,30 +1592,6 @@ public sealed partial class DrawPage : Page
             DrawingCanvas.Children.Remove(marker);
         }
         _polygonPointMarkers.Clear();
-    }
-
-    private void HandleTriangleClick(Point point)
-    {
-        if (!ViewModel.IsDrawingPolygon)
-        {
-            ViewModel.StartPolygonDrawing();
-            ClearTemporaryPolygonDrawing();
-        }
-
-        ViewModel.AddPolygonPoint(point);
-        DrawPointMarker(point);
-
-        if (ViewModel.PolygonPoints.Count > 1)
-        {
-            var previousPoint = ViewModel.PolygonPoints[ViewModel.PolygonPoints.Count - 2];
-            DrawTemporaryLine(previousPoint, point);
-        }
-
-        // Auto-complete triangle when 3 points are added
-        if (ViewModel.PolygonPoints.Count == 3)
-        {
-            CompleteTriangle();
-        }
     }
 
     private async void CompleteTriangle()

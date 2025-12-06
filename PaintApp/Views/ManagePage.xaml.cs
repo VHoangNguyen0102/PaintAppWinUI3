@@ -28,7 +28,13 @@ public sealed partial class ManagePage : Page
 
     private void CanvasGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is CanvasModel canvas && ViewModel.SelectedProfile != null)
+        // Disable ItemClick to avoid conflict with button clicks
+        // Navigation is now handled by OpenCanvasButton_Click
+    }
+
+    private void OpenCanvasButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is CanvasModel canvas && ViewModel.SelectedProfile != null)
         {
             // Navigate to DrawPage with canvas and profile
             Frame.Navigate(typeof(DrawPage), new DrawPageNavigationParameter

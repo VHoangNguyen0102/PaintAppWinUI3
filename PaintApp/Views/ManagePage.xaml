@@ -217,9 +217,14 @@
                                 <GridView
                                     ItemsSource="{x:Bind ViewModel.Canvases, Mode=OneWay}"
                                     SelectionMode="None"
-                                    IsItemClickEnabled="True"
-                                    ItemClick="CanvasGridView_ItemClick"
+                                    IsItemClickEnabled="False"
+                                    Padding="0"
                                     Visibility="{x:Bind ViewModel.IsLoadingCanvases, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}">
+                                    <GridView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsWrapGrid Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </GridView.ItemsPanel>
                                     <GridView.ItemTemplate>
                                         <DataTemplate x:DataType="models:Canvas">
                                             <Border
@@ -228,7 +233,7 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Width="280"
-                                                Height="220"
+                                                Margin="8"
                                                 Padding="16">
                                                 <Border.Shadow>
                                                     <ThemeShadow />
@@ -236,7 +241,7 @@
                                                 <Grid>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="*"/>
+                                                        <RowDefinition Height="Auto"/>
                                                         <RowDefinition Height="Auto"/>
                                                     </Grid.RowDefinitions>
 
@@ -247,7 +252,7 @@
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
                                                         CornerRadius="4"
-                                                        Height="100"
+                                                        Height="120"
                                                         Margin="0,0,0,12">
                                                         <Grid>
                                                             <FontIcon 
@@ -260,14 +265,16 @@
                                                     </Border>
 
                                                     <!-- Canvas Info -->
-                                                    <StackPanel Grid.Row="1" Spacing="4">
+                                                    <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,12" Height="80">
                                                         <TextBlock 
                                                             Text="{x:Bind Name}" 
                                                             Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                            TextTrimming="CharacterEllipsis"/>
+                                                            TextTrimming="CharacterEllipsis"
+                                                            MaxLines="1"/>
                                                         <TextBlock 
                                                             Style="{StaticResource CaptionTextBlockStyle}"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                            <Run Text="Size: "/>
                                                             <Run Text="{x:Bind Width}"/>
                                                             <Run Text=" × "/>
                                                             <Run Text="{x:Bind Height}"/>
@@ -275,14 +282,15 @@
                                                         </TextBlock>
                                                         <TextBlock 
                                                             Style="{StaticResource CaptionTextBlockStyle}"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            TextTrimming="CharacterEllipsis">
                                                             <Run Text="Created: "/>
                                                             <Run Text="{x:Bind CreatedAt}"/>
                                                         </TextBlock>
                                                     </StackPanel>
 
                                                     <!-- Action Buttons -->
-                                                    <Grid Grid.Row="2">
+                                                    <Grid Grid.Row="2" Height="40">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
@@ -291,7 +299,10 @@
                                                         <Button
                                                             Grid.Column="0"
                                                             HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
                                                             Margin="0,0,4,0"
+                                                            Click="OpenCanvasButton_Click"
+                                                            Tag="{x:Bind}"
                                                             Style="{StaticResource AccentButtonStyle}">
                                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                                 <FontIcon Glyph="&#xE8A7;" FontSize="16"/>
