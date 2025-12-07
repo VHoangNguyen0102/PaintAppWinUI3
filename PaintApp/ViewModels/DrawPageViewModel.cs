@@ -146,6 +146,9 @@ public partial class DrawPageViewModel : ViewModelBase
     [ObservableProperty]
     private bool hasTemplates;
 
+    [ObservableProperty]
+    private bool isSavingTemplate;
+
     public ObservableCollection<string> Tools { get; } = new()
     {
         "Select",
@@ -322,26 +325,107 @@ public partial class DrawPageViewModel : ViewModelBase
 
     public async Task LoadTemplatesAsync()
     {
+        if (IsLoadingTemplates)
+        {
+            System.Diagnostics.Debug.WriteLine("LoadTemplates: Already loading, skipping...");
+            return;
+        }
+
         IsLoadingTemplates = true;
         try
         {
+            System.Diagnostics.Debug.WriteLine("LoadTemplates: Starting load...");
+            
             var templates = await _shapeService.GetTemplateShapesAsync();
             
+            System.Diagnostics.Debug.WriteLine($"LoadTemplates: Loaded {templates.Count} templates from database");
+            
+            // Remove duplicates based on Type, GeometryData, and colors
+            var uniqueTemplates = templates
+                .GroupBy(t => new { t.Type, t.GeometryData, t.StrokeColor, t.FillColor, t.StrokeThickness })
+                .Select(g => g.OrderByDescending(t => t.UsageCount).ThenBy(t => t.Id).First())
+                .ToList();
+            
+            if (uniqueTemplates.Count < templates.Count)
+            {
+                System.Diagnostics.Debug.WriteLine($"LoadTemplates: Found {templates.Count - uniqueTemplates.Count} duplicate templates");
+            }
+            
+            // Clear and reload on UI thread
             TemplateShapes.Clear();
-            foreach (var template in templates)
+            foreach (var template in uniqueTemplates)
             {
                 TemplateShapes.Add(template);
             }
             
             HasTemplates = TemplateShapes.Count > 0;
+            
+            System.Diagnostics.Debug.WriteLine($"LoadTemplates: UI updated with {TemplateShapes.Count} unique templates");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"LoadTemplates ERROR: {ex.Message}");
             await ShowErrorDialogAsync("Load Templates Error", $"Failed to load templates: {ex.Message}");
         }
         finally
         {
             IsLoadingTemplates = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CleanupDuplicateTemplatesAsync()
+    {
+        if (_xamlRoot == null) return;
+
+        var dialog = new ContentDialog
+        {
+            Title = "Cleanup Duplicate Templates?",
+            Content = "This will remove duplicate templates from the database.\n\n" +
+                     "Templates with higher usage count will be kept.\n\n" +
+                     "Do you want to continue?",
+            PrimaryButtonText = "Cleanup",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = _xamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return;
+
+        try
+        {
+            var allTemplates = await _shapeService.GetTemplateShapesAsync();
+            
+            // Group by similarity
+            var groups = allTemplates
+                .GroupBy(t => new { t.Type, t.GeometryData, t.StrokeColor, t.FillColor, t.StrokeThickness })
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            int deletedCount = 0;
+            foreach (var group in groups)
+            {
+                // Keep the one with highest usage or oldest
+                var toKeep = group.OrderByDescending(t => t.UsageCount).ThenBy(t => t.Id).First();
+                var toDelete = group.Where(t => t.Id != toKeep.Id).ToList();
+
+                foreach (var template in toDelete)
+                {
+                    await _shapeService.DeleteShapeAsync(template.Id);
+                    deletedCount++;
+                }
+            }
+
+            await LoadTemplatesAsync();
+
+            await ShowSuccessDialogAsync("Cleanup Complete", 
+                $"Removed {deletedCount} duplicate template(s).");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Cleanup Error", 
+                $"Failed to cleanup templates: {ex.Message}");
         }
     }
 
@@ -912,15 +996,34 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveShapeToTemplateAsync()
     {
+        // Prevent duplicate calls
+        if (isSavingTemplate)
+        {
+            System.Diagnostics.Debug.WriteLine("SaveShapeToTemplate: Already in progress, skipping...");
+            return;
+        }
+
         if (SelectedShape == null)
         {
             await ShowErrorDialogAsync("Error", "No shape selected.");
             return;
         }
 
+        // Check if this shape is already a template
+        if (SelectedShape.IsTemplate)
+        {
+            await ShowErrorDialogAsync("Already Template", 
+                "This shape is already saved as a template.");
+            return;
+        }
+
+        isSavingTemplate = true;
+        
         try
         {
-            // Create a copy of the shape for template
+            System.Diagnostics.Debug.WriteLine($"SaveShapeToTemplate: Starting save for shape {SelectedShape.Type}");
+            
+            // Create a deep copy of the SELECTED shape ONLY
             var templateShape = new ShapeModel
             {
                 Type = SelectedShape.Type,
@@ -933,27 +1036,34 @@ public partial class DrawPageViewModel : ViewModelBase
                 Width = SelectedShape.Width,
                 Height = SelectedShape.Height,
                 ZIndex = 0,
-                IsTemplate = true,
-                CanvasId = null, // Detach from canvas
-                DrawingId = null,
+                IsTemplate = true,        // Mark as template
+                CanvasId = null,          // Detach from canvas
+                DrawingId = null,         // Detach from drawing
                 CreatedAt = DateTime.Now,
                 UsageCount = 0
             };
 
-            // Save to database
+            // Save ONCE to database
             var savedTemplate = await _shapeService.CreateShapeAsync(templateShape);
+            
+            System.Diagnostics.Debug.WriteLine($"SaveShapeToTemplate: Template saved with ID {savedTemplate.Id}");
 
-            // Reload templates
+            // Reload templates on UI thread
             await LoadTemplatesAsync();
 
             await ShowSuccessDialogAsync("Template Saved", 
-                $"Shape '{savedTemplate.Type}' has been saved as a template!\n\n" +
+                $"Shape '{savedTemplate.Type}' (ID: {savedTemplate.Id}) has been saved as a template!\n\n" +
                 $"You can now reuse this shape in other canvases.");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"SaveShapeToTemplate ERROR: {ex.Message}");
             await ShowErrorDialogAsync("Save Template Error", 
                 $"Failed to save shape as template: {ex.Message}");
+        }
+        finally
+        {
+            isSavingTemplate = false;
         }
     }
 
@@ -974,6 +1084,8 @@ public partial class DrawPageViewModel : ViewModelBase
 
         try
         {
+            System.Diagnostics.Debug.WriteLine($"UseTemplate: Using template {template.Type} (ID: {template.Id})");
+            
             // Create a new shape from template
             // Position it at center of canvas
             var newShape = new ShapeModel
@@ -998,16 +1110,24 @@ public partial class DrawPageViewModel : ViewModelBase
             // Update geometry data to new position
             newShape = UpdateShapeGeometryForPosition(newShape);
 
+            System.Diagnostics.Debug.WriteLine($"UseTemplate: Saving new shape to canvas {CurrentCanvas.Id}");
+
             // Save to database
             var savedShape = await _shapeService.CreateShapeAsync(newShape);
             
-            // Add to collection
+            System.Diagnostics.Debug.WriteLine($"UseTemplate: Shape created with ID {savedShape.Id}");
+            
+            // Add to collection on UI thread
             Shapes.Add(savedShape);
             ShapeCreated?.Invoke(this, savedShape);
 
             // Update template usage count
+            System.Diagnostics.Debug.WriteLine($"UseTemplate: Updating template usage count");
             template.UsageCount++;
             await _shapeService.UpdateShapeAsync(template);
+
+            // Reload templates to show updated usage count
+            await LoadTemplatesAsync();
 
             // Mark as unsaved
             MarkAsUnsaved();
@@ -1015,9 +1135,22 @@ public partial class DrawPageViewModel : ViewModelBase
             // Select the new shape
             SelectedTool = "Select";
             SelectShapeCommand(savedShape);
+            
+            System.Diagnostics.Debug.WriteLine($"UseTemplate: Completed successfully");
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"UseTemplate ERROR (InvalidOperation): {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            
+            await ShowErrorDialogAsync("Use Template Error", 
+                $"Operation failed: {ex.Message}\n\nPlease try again.");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"UseTemplate ERROR: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            
             await ShowErrorDialogAsync("Use Template Error", 
                 $"Failed to use template: {ex.Message}");
         }

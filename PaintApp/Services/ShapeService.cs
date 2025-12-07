@@ -48,10 +48,10 @@ public class ShapeService : IShapeService
     {
         try
         {
-            // Template shapes có IsTemplate = true ho?c có DrawingId null
+            // Only get shapes that are explicitly marked as templates
             return await _dbContext.Shapes
-                .Where(s => s.IsTemplate || s.DrawingId == null)
-                .OrderBy(s => s.Type)
+                .Where(s => s.IsTemplate == true)
+                .OrderByDescending(s => s.UsageCount)
                 .ThenBy(s => s.CreatedAt)
                 .ToListAsync();
         }
@@ -75,9 +75,10 @@ public class ShapeService : IShapeService
                 throw new ArgumentException("Shape type is required.", nameof(shape));
             }
 
-            if (shape.CanvasId <= 0)
+            // Only validate CanvasId if shape is not a template
+            if (!shape.IsTemplate && shape.CanvasId <= 0)
             {
-                throw new ArgumentException("Canvas ID must be greater than zero.", nameof(shape));
+                throw new ArgumentException("Canvas ID must be greater than zero for non-template shapes.", nameof(shape));
             }
 
             if (string.IsNullOrWhiteSpace(shape.GeometryData))
@@ -149,6 +150,7 @@ public class ShapeService : IShapeService
             existingShape.StrokeThickness = shape.StrokeThickness;
             existingShape.GeometryData = shape.GeometryData;
             existingShape.IsTemplate = shape.IsTemplate;
+            existingShape.UsageCount = shape.UsageCount;
             existingShape.X = shape.X;
             existingShape.Y = shape.Y;
             existingShape.Width = shape.Width;
