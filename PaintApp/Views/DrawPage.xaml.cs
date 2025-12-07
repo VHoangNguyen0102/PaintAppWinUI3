@@ -84,7 +84,11 @@ public sealed partial class DrawPage : Page
     {
         DrawingCanvas.Width = canvas.Width;
         DrawingCanvas.Height = canvas.Height;
+        
+        // IMPORTANT: Canvas background should ALWAYS use the canvas's background color setting
+        // This should NOT be affected by theme - it's the drawing surface
         DrawingCanvas.Background = new SolidColorBrush(ParseColor(canvas.BackgroundColor));
+        
         DrawingCanvas.Children.Clear();
         
         // Clear shape mapping
@@ -94,6 +98,8 @@ public sealed partial class DrawPage : Page
         
         // Render existing shapes
         RenderShapes();
+        
+        System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas loaded with background color '{canvas.BackgroundColor}'");
     }
 
     private void ViewModel_ShapeCreated(object? sender, ShapeModel shape)
@@ -1102,6 +1108,7 @@ public sealed partial class DrawPage : Page
         {
             System.Diagnostics.Debug.WriteLine($"DrawPage: Loading with Profile '{profile.Name}' (ID: {profile.Id})");
             ViewModel.SetProfile(profile);
+            ApplyProfileTheme(profile);
         }
         else if (e.Parameter is DrawPageNavigationParameter navParam)
         {
@@ -1109,6 +1116,7 @@ public sealed partial class DrawPage : Page
             
             // Load canvas from ManagePage
             ViewModel.SetProfile(navParam.Profile);
+            ApplyProfileTheme(navParam.Profile);
             ViewModel.LoadCanvas(navParam.Canvas);
         }
         else
@@ -1121,12 +1129,29 @@ public sealed partial class DrawPage : Page
             {
                 System.Diagnostics.Debug.WriteLine($"DrawPage: Using profile from ProfileManager: '{profileManager.CurrentProfile.Name}' (ID: {profileManager.CurrentProfile.Id})");
                 ViewModel.SetProfile(profileManager.CurrentProfile);
+                ApplyProfileTheme(profileManager.CurrentProfile);
             }
             else
             {
                 System.Diagnostics.Debug.WriteLine("DrawPage: WARNING - No profile available in ProfileManager");
             }
         }
+    }
+
+    private void ApplyProfileTheme(Profile profile)
+    {
+        var theme = profile.Theme switch
+        {
+            "Light" => ElementTheme.Light,
+            "Dark" => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+        
+        // Apply theme to the page root - this affects tool panels and UI chrome
+        // The canvas drawing area will keep its own background from canvas settings
+        this.RequestedTheme = theme;
+        
+        System.Diagnostics.Debug.WriteLine($"DrawPage: Applied theme '{theme}' from profile '{profile.Name}'");
     }
 
     private void ToolButton_Click(object sender, RoutedEventArgs e)

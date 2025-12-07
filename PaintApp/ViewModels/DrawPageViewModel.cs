@@ -284,6 +284,8 @@ public partial class DrawPageViewModel : ViewModelBase
             CurrentFillColor = ParseColor(profile.DefaultFillColor);
             CurrentStrokeThickness = profile.DefaultStrokeThickness;
         }
+        
+        System.Diagnostics.Debug.WriteLine($"DrawPageViewModel: Profile '{profile.Name}' set with theme '{profile.Theme ?? "Default"}'");
     }
 
     public async void LoadCanvas(CanvasModel canvas)
