@@ -49,8 +49,11 @@ namespace PaintApp
                 options.UseSqlite($"Data Source={dbPath}");
             });
             
-            // Services
+            // Services (Singletons for state management)
             services.AddSingleton<IProfileManager, ProfileManager>();
+            services.AddSingleton<INavigationService, NavigationService>();
+            
+            // Services (Scoped)
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<ICanvasService, CanvasService>();
             services.AddScoped<IShapeService, ShapeService>();

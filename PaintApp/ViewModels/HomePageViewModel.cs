@@ -16,6 +16,7 @@ public partial class HomePageViewModel : ViewModelBase
 {
     private readonly IProfileService _profileService;
     private readonly IProfileManager _profileManager;
+    private readonly INavigationService _navigationService;
     private XamlRoot? _xamlRoot;
 
     [ObservableProperty]
@@ -33,10 +34,11 @@ public partial class HomePageViewModel : ViewModelBase
     [ObservableProperty]
     private bool isLoading;
 
-    public HomePageViewModel(IProfileService profileService, IProfileManager profileManager)
+    public HomePageViewModel(IProfileService profileService, IProfileManager profileManager, INavigationService navigationService)
     {
         _profileService = profileService;
         _profileManager = profileManager;
+        _navigationService = navigationService;
         _ = LoadProfilesAsync();
     }
 
@@ -51,6 +53,9 @@ public partial class HomePageViewModel : ViewModelBase
         
         // Update ProfileManager with current selection
         _profileManager.SetCurrentProfile(value);
+        
+        // Update NavigationService with profile ID
+        _navigationService.SetProfileId(value?.Id);
         
         System.Diagnostics.Debug.WriteLine(value != null
             ? $"HomePageViewModel: Profile '{value.Name}' selected and set as current"

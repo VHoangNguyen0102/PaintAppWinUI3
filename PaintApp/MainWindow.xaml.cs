@@ -18,6 +18,7 @@ using Windows.Foundation.Collections;
 using Windows.Storage;
 using PaintApp.Views;
 using PaintApp.Services;
+using PaintApp.Models;
 
 namespace PaintApp
 {
@@ -28,6 +29,7 @@ namespace PaintApp
     {
         private readonly ApplicationDataContainer _localSettings;
         private readonly IProfileManager _profileManager;
+        private readonly INavigationService _navigationService;
         private NavigationViewItem? _canvasNavItem;
 
         public MainWindow()
@@ -35,6 +37,7 @@ namespace PaintApp
             InitializeComponent();
             _localSettings = ApplicationData.Current.LocalSettings;
             _profileManager = App.ServiceProvider.GetRequiredService<IProfileManager>();
+            _navigationService = App.ServiceProvider.GetRequiredService<INavigationService>();
             
             SetupCustomTitleBar();
             SetupBackdrop();
@@ -43,6 +46,9 @@ namespace PaintApp
             // Subscribe to profile changes
             _profileManager.CurrentProfileChanged += ProfileManager_CurrentProfileChanged;
             
+            // Subscribe to navigation state changes
+            _navigationService.NavigationStateChanged += NavigationService_NavigationStateChanged;
+            
             // Find Canvas nav item (already has x:Name in XAML)
             _canvasNavItem = CanvasNavItem;
             
@@ -50,6 +56,15 @@ namespace PaintApp
             
             NavView.SelectedItem = NavView.MenuItems[0];
             ContentFrame.Navigate(typeof(HomePage));
+        }
+
+        private void NavigationService_NavigationStateChanged(object? sender, NavigationState state)
+        {
+            // Update UI when navigation state changes
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                System.Diagnostics.Debug.WriteLine($"MainWindow: Navigation state changed - Page: {state.CurrentPage}, Profile: {state.ProfileId}, Canvas: {state.CanvasId}");
+            });
         }
 
         private void ProfileManager_CurrentProfileChanged(object? sender, Models.Profile? profile)
@@ -151,6 +166,12 @@ namespace PaintApp
         private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
         {
             NavView.IsBackEnabled = ContentFrame.CanGoBack;
+            
+            // Record navigation in NavigationService
+            var pageType = e.SourcePageType.Name;
+            _navigationService.RecordNavigation(pageType, e.Parameter);
+            
+            System.Diagnostics.Debug.WriteLine($"MainWindow: Navigated to {pageType}");
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
