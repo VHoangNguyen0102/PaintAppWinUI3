@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ public partial class ManagePageViewModel : ViewModelBase
     private readonly ICanvasService _canvasService;
     private readonly IShapeService _shapeService;
     private readonly IProfileManager _profileManager;
+    private readonly IStatisticsService _statisticsService;
 
     [ObservableProperty]
     private ObservableCollection<Profile> profiles = new();
@@ -55,14 +57,71 @@ public partial class ManagePageViewModel : ViewModelBase
     private bool isLoadingTemplates;
 
     [ObservableProperty]
+    private bool isLoadingStatistics;
+
+    [ObservableProperty]
     private Microsoft.UI.Xaml.XamlRoot? xamlRoot;
 
-    public ManagePageViewModel(AppDbContext dbContext, ICanvasService canvasService, IShapeService shapeService, IProfileManager profileManager)
+    // Statistics Properties
+    [ObservableProperty]
+    private int totalShapesCount;
+
+    [ObservableProperty]
+    private double averageShapesPerCanvas;
+
+    [ObservableProperty]
+    private string? mostUsedShapeType;
+
+    [ObservableProperty]
+    private int mostUsedShapeTypeCount;
+
+    [ObservableProperty]
+    private string? mostUsedColor;
+
+    [ObservableProperty]
+    private int mostUsedColorCount;
+
+    [ObservableProperty]
+    private DateTime? lastActivity;
+
+    [ObservableProperty]
+    private int activeDays;
+
+    [ObservableProperty]
+    private DateTime? firstCanvasCreated;
+
+    [ObservableProperty]
+    private DateTime? lastCanvasCreated;
+
+    // Chart Data Collections
+    [ObservableProperty]
+    private ObservableCollection<ChartDataItem> shapeTypeChartData = new();
+
+    [ObservableProperty]
+    private ObservableCollection<ChartDataItem> topTemplatesChartData = new();
+
+    [ObservableProperty]
+    private ObservableCollection<ChartDataItem> topColorsChartData = new();
+
+    [ObservableProperty]
+    private ObservableCollection<ActivityDataItem> shapeActivityChartData = new();
+
+    [ObservableProperty]
+    private ObservableCollection<ActivityDataItem> canvasActivityChartData = new();
+
+    public ManagePageViewModel(
+        AppDbContext dbContext, 
+        ICanvasService canvasService, 
+        IShapeService shapeService, 
+        IProfileManager profileManager,
+        IStatisticsService statisticsService)
     {
         _dbContext = dbContext;
         _canvasService = canvasService;
         _shapeService = shapeService;
         _profileManager = profileManager;
+        _statisticsService = statisticsService;
+        
         _ = LoadDataAsync();
     }
 
@@ -76,6 +135,12 @@ public partial class ManagePageViewModel : ViewModelBase
             3 => "Manage Templates",
             _ => "Dashboard"
         };
+        
+        // Load statistics when navigating to Dashboard tab
+        if (value == 0 && SelectedProfile != null)
+        {
+            _ = LoadStatisticsAsync(SelectedProfile.Id);
+        }
     }
 
     partial void OnSelectedProfileChanged(Profile? value)
@@ -83,6 +148,12 @@ public partial class ManagePageViewModel : ViewModelBase
         if (value != null)
         {
             _ = LoadCanvasesForProfileAsync(value.Id);
+            
+            // Load statistics if Dashboard tab is active
+            if (SelectedTabIndex == 0)
+            {
+                _ = LoadStatisticsAsync(value.Id);
+            }
         }
         
         // Sync with ProfileManager
@@ -130,6 +201,12 @@ public partial class ManagePageViewModel : ViewModelBase
         else if (Profiles.Count > 0)
         {
             SelectedProfile = Profiles[0];
+        }
+
+        // Load statistics for the first profile if available
+        if (SelectedProfile != null)
+        {
+            await LoadStatisticsAsync(SelectedProfile.Id);
         }
     }
 
@@ -188,6 +265,104 @@ public partial class ManagePageViewModel : ViewModelBase
         }
     }
 
+    private async Task LoadStatisticsAsync(int profileId)
+    {
+        IsLoadingStatistics = true;
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Loading statistics for profile {profileId}");
+
+            // Get comprehensive summary
+            var summary = await _statisticsService.GetProfileStatisticsSummaryAsync(profileId);
+
+            // Update counter properties
+            TotalCanvases = summary.TotalCanvases;
+            TotalShapesCount = summary.TotalShapes;
+            TotalTemplates = summary.TotalTemplates;
+            AverageShapesPerCanvas = summary.AverageShapesPerCanvas;
+            MostUsedShapeType = summary.MostUsedShapeType;
+            MostUsedShapeTypeCount = summary.MostUsedShapeTypeCount;
+            MostUsedColor = summary.MostUsedColor;
+            MostUsedColorCount = summary.MostUsedColorCount;
+            FirstCanvasCreated = summary.FirstCanvasCreated;
+            LastCanvasCreated = summary.LastCanvasCreated;
+            LastActivity = summary.LastActivity;
+            ActiveDays = summary.ActiveDays;
+
+            // Load shape type distribution for pie chart
+            var shapeDistribution = await _statisticsService.GetShapeTypeDistributionAsync(profileId);
+            ShapeTypeChartData.Clear();
+            foreach (var item in shapeDistribution.OrderByDescending(x => x.Value))
+            {
+                ShapeTypeChartData.Add(new ChartDataItem
+                {
+                    Label = item.Key,
+                    Value = item.Value
+                });
+            }
+
+            // Load most used templates for bar chart
+            var topTemplates = await _statisticsService.GetMostUsedTemplatesAsync(profileId, 5);
+            TopTemplatesChartData.Clear();
+            foreach (var template in topTemplates)
+            {
+                TopTemplatesChartData.Add(new ChartDataItem
+                {
+                    Label = template.Type,
+                    Value = template.UsageCount
+                });
+            }
+
+            // Load most used colors for bar chart
+            var topColors = await _statisticsService.GetMostUsedColorsAsync(profileId, 5);
+            TopColorsChartData.Clear();
+            foreach (var color in topColors)
+            {
+                TopColorsChartData.Add(new ChartDataItem
+                {
+                    Label = color.Key,
+                    Value = color.Value,
+                    Color = color.Key // Store hex color for visual representation
+                });
+            }
+
+            // Load shape activity over time (last 30 days)
+            var shapeActivity = await _statisticsService.GetShapeActivityOverTimeAsync(profileId, 30);
+            ShapeActivityChartData.Clear();
+            foreach (var item in shapeActivity.OrderBy(x => x.Key))
+            {
+                ShapeActivityChartData.Add(new ActivityDataItem
+                {
+                    Date = item.Key,
+                    Count = item.Value
+                });
+            }
+
+            // Load canvas activity over time (last 30 days)
+            var canvasActivity = await _statisticsService.GetCanvasActivityOverTimeAsync(profileId, 30);
+            CanvasActivityChartData.Clear();
+            foreach (var item in canvasActivity.OrderBy(x => x.Key))
+            {
+                CanvasActivityChartData.Add(new ActivityDataItem
+                {
+                    Date = item.Key,
+                    Count = item.Value
+                });
+            }
+
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Statistics loaded - {TotalShapesCount} shapes, {TotalCanvases} canvases");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Error loading statistics: {ex.Message}");
+            await ShowErrorDialogAsync("Load Statistics Error", $"Failed to load statistics: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingStatistics = false;
+        }
+    }
+
     [RelayCommand]
     private async Task RefreshDataAsync()
     {
@@ -208,6 +383,15 @@ public partial class ManagePageViewModel : ViewModelBase
     {
         await LoadTemplatesAsync();
         TotalTemplates = TemplateShapes.Count;
+    }
+
+    [RelayCommand]
+    private async Task RefreshStatisticsAsync()
+    {
+        if (SelectedProfile != null)
+        {
+            await LoadStatisticsAsync(SelectedProfile.Id);
+        }
     }
 
     [RelayCommand]
