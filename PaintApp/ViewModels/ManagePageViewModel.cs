@@ -289,15 +289,23 @@ public partial class ManagePageViewModel : ViewModelBase
             LastActivity = summary.LastActivity;
             ActiveDays = summary.ActiveDays;
 
-            // Load shape type distribution for pie chart
+            // Load shape type distribution for column chart
             var shapeDistribution = await _statisticsService.GetShapeTypeDistributionAsync(profileId);
             ShapeTypeChartData.Clear();
-            foreach (var item in shapeDistribution.OrderByDescending(x => x.Value))
+            
+            // Get max value for scaling
+            var maxValue = shapeDistribution.Any() ? shapeDistribution.Max(x => x.Value) : 1;
+            
+            foreach (var item in shapeDistribution.OrderByDescending(x => x.Value).Take(6)) // Take top 6 shapes
             {
+                // Calculate height (scale to max 200px)
+                var scaledHeight = maxValue > 0 ? (item.Value * 200.0 / maxValue) : 0;
+                
                 ShapeTypeChartData.Add(new ChartDataItem
                 {
                     Label = item.Key,
-                    Value = item.Value
+                    Value = item.Value,
+                    Percentage = scaledHeight // Use Percentage property to store scaled height
                 });
             }
 

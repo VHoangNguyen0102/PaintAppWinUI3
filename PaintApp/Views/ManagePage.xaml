@@ -16,6 +16,7 @@
     <Page.Resources>
         <converters:BoolToVisibilityInverseConverter x:Key="BoolToVisibilityInverseConverter"/>
         <converters:IntToVisibilityInverseConverter x:Key="IntToVisibilityInverseConverter"/>
+        <converters:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
     </Page.Resources>
 
     <Grid Padding="40">
@@ -51,178 +52,594 @@
                     <TabViewItem.IconSource>
                         <SymbolIconSource Symbol="Home"/>
                     </TabViewItem.IconSource>
-                    <Grid Padding="24">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Profile Info Card -->
-                        <Border
-                            Grid.Row="0"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20"
-                            Margin="0,0,0,24">
-                            <Border.Shadow>
-                                <ThemeShadow />
-                            </Border.Shadow>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Profile Avatar -->
-                                <PersonPicture
-                                    Grid.Column="0"
-                                    Width="80"
-                                    Height="80"
-                                    Margin="0,0,20,0"/>
-
-                                <!-- Profile Details -->
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
-                                    <TextBlock
-                                        Text="Current Profile"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    <TextBlock
-                                        Text="{x:Bind ViewModel.SelectedProfile.Name, Mode=OneWay, FallbackValue='No Profile Selected'}"
-                                        Style="{StaticResource TitleTextBlockStyle}"/>
-                                    
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Default Canvas Size -->
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
-                                            <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
-                                                <Run Text="Canvas: "/>
-                                                <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasWidth, Mode=OneWay}"/>
-                                                <Run Text="×"/>
-                                                <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasHeight, Mode=OneWay}"/>
-                                            </TextBlock>
-                                        </StackPanel>
-
-                                        <!-- Theme -->
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
-                                            <FontIcon Glyph="&#xE771;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
-                                                <Run Text="Theme: "/>
-                                                <Run Text="{x:Bind ViewModel.SelectedProfile.Theme, Mode=OneWay, FallbackValue='Default'}"/>
-                                            </TextBlock>
-                                        </StackPanel>
-
-                                        <!-- Created Date -->
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                                            <FontIcon Glyph="&#xE787;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
-                                                <Run Text="Created: "/>
-                                                <Run Text="{x:Bind ViewModel.SelectedProfile.CreatedAt, Mode=OneWay}"/>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <!-- Dashboard Stats -->
-                        <Grid Grid.Row="1" Margin="0,0,0,24">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
+                    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="24">
+                            <!-- Profile Info Card -->
                             <Border
-                                Grid.Column="0"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
-                                Padding="24"
-                                Margin="0,0,8,0">
+                                Padding="20">
                                 <Border.Shadow>
                                     <ThemeShadow />
                                 </Border.Shadow>
-                                <StackPanel Spacing="8">
-                                    <FontIcon Glyph="&#xE716;" FontSize="32" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                    <TextBlock Text="Total Profiles" Style="{StaticResource BodyTextBlockStyle}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.TotalProfiles, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Profile Avatar -->
+                                    <PersonPicture
+                                        Grid.Column="0"
+                                        Width="80"
+                                        Height="80"
+                                        Margin="0,0,20,0"/>
+
+                                    <!-- Profile Details -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                                        <TextBlock
+                                            Text="Current Profile"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock
+                                            Text="{x:Bind ViewModel.SelectedProfile.Name, Mode=OneWay, FallbackValue='No Profile Selected'}"
+                                            Style="{StaticResource TitleTextBlockStyle}"/>
+                                        
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Default Canvas Size -->
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
+                                                <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                    <Run Text="Canvas: "/>
+                                                    <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasWidth, Mode=OneWay}"/>
+                                                    <Run Text="×"/>
+                                                    <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasHeight, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- Theme -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
+                                                <FontIcon Glyph="&#xE771;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                    <Run Text="Theme: "/>
+                                                    <Run Text="{x:Bind ViewModel.SelectedProfile.Theme, Mode=OneWay, FallbackValue='Default'}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- Created Date -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                                <FontIcon Glyph="&#xE787;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                    <Run Text="Created: "/>
+                                                    <Run Text="{x:Bind ViewModel.SelectedProfile.CreatedAt, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Refresh Button -->
+                                    <Button
+                                        Grid.Column="2"
+                                        Command="{x:Bind ViewModel.RefreshStatisticsCommand}"
+                                        VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE72C;" FontSize="16"/>
+                                            <TextBlock Text="Refresh"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
                             </Border>
 
-                            <Border
-                                Grid.Column="1"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="24"
-                                Margin="4,0,4,0">
-                                <Border.Shadow>
-                                    <ThemeShadow />
-                                </Border.Shadow>
-                                <StackPanel Spacing="8">
-                                    <FontIcon Glyph="&#xE8B7;" FontSize="32" Foreground="{ThemeResource SystemFillColorAttentionBrush}"/>
-                                    <TextBlock Text="Total Canvases" Style="{StaticResource BodyTextBlockStyle}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.TotalCanvases, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}"/>
-                                </StackPanel>
-                            </Border>
+                            <!-- Loading Indicator -->
+                            <ProgressRing 
+                                IsActive="{x:Bind ViewModel.IsLoadingStatistics, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsLoadingStatistics, Mode=OneWay}"
+                                HorizontalAlignment="Center"
+                                Width="60"
+                                Height="60"/>
 
-                            <Border
-                                Grid.Column="2"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="24"
-                                Margin="8,0,0,0">
-                                <Border.Shadow>
-                                    <ThemeShadow />
-                                </Border.Shadow>
-                                <StackPanel Spacing="8">
-                                    <FontIcon Glyph="&#xE8F1;" FontSize="32" Foreground="{ThemeResource SystemFillColorCautionBrush}"/>
-                                    <TextBlock Text="Total Templates" Style="{StaticResource BodyTextBlockStyle}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.TotalTemplates, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
+                            <!-- Statistics Cards Grid -->
+                            <Grid Visibility="{x:Bind ViewModel.IsLoadingStatistics, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <StackPanel Spacing="16">
-                                <TextBlock Text="Recent Activity" Style="{StaticResource SubtitleTextBlockStyle}"/>
-                                <ListView
-                                    ItemsSource="{x:Bind ViewModel.Profiles, Mode=OneWay}"
-                                    SelectionMode="None">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                CornerRadius="4"
-                                                Padding="16"
-                                                Margin="0,4,0,4">
-                                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                                    <PersonPicture Width="40" Height="40"/>
-                                                    <StackPanel VerticalAlignment="Center">
-                                                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                    </StackPanel>
+                                <!-- Row 1: Main Stats -->
+                                <Grid Grid.Row="0" Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Total Canvases Card -->
+                                    <Border
+                                        Grid.Column="0"
+                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="0,0,8,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE8B7;" FontSize="32" Foreground="White"/>
+                                            <TextBlock Text="Total Canvases" Style="{StaticResource BodyTextBlockStyle}" Foreground="White"/>
+                                            <TextBlock Text="{x:Bind ViewModel.TotalCanvases, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Total Shapes Card -->
+                                    <Border
+                                        Grid.Column="1"
+                                        Background="{ThemeResource SystemFillColorAttentionBrush}"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="4,0,4,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE91B;" FontSize="32" Foreground="White"/>
+                                            <TextBlock Text="Total Shapes" Style="{StaticResource BodyTextBlockStyle}" Foreground="White"/>
+                                            <TextBlock Text="{x:Bind ViewModel.TotalShapesCount, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Total Templates Card -->
+                                    <Border
+                                        Grid.Column="2"
+                                        Background="{ThemeResource SystemFillColorSuccessBrush}"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="4,0,4,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE8F1;" FontSize="32" Foreground="White"/>
+                                            <TextBlock Text="Total Templates" Style="{StaticResource BodyTextBlockStyle}" Foreground="White"/>
+                                            <TextBlock Text="{x:Bind ViewModel.TotalTemplates, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Average Shapes Per Canvas Card -->
+                                    <Border
+                                        Grid.Column="3"
+                                        Background="{ThemeResource SystemFillColorCautionBrush}"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="8,0,0,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE9D9;" FontSize="32" Foreground="White"/>
+                                            <TextBlock Text="Avg Shapes/Canvas" Style="{StaticResource BodyTextBlockStyle}" Foreground="White"/>
+                                            <TextBlock Text="{x:Bind ViewModel.AverageShapesPerCanvas, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}" Foreground="White"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Row 2: Charts -->
+                                <Grid Grid.Row="1" Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Shape Type Distribution - Improved Column Chart -->
+                                    <Border
+                                        Grid.Column="0"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="0,0,8,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="16">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="Shape Type Distribution" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                                <TextBlock 
+                                                    Text="Top 6 most used shape types"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+
+                                            <!-- Column Chart -->
+                                            <Grid Height="320">
+                                                <!-- Empty State -->
+                                                <StackPanel 
+                                                    VerticalAlignment="Center" 
+                                                    HorizontalAlignment="Center"
+                                                    Spacing="12"
+                                                    Visibility="{x:Bind ViewModel.ShapeTypeChartData.Count, Mode=OneWay, Converter={StaticResource IntToVisibilityInverseConverter}}">
+                                                    <FontIcon Glyph="&#xE9F3;" FontSize="48" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                    <TextBlock 
+                                                        Text="No data available" 
+                                                        Style="{StaticResource BodyTextBlockStyle}"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    <TextBlock 
+                                                        Text="Start creating shapes to see statistics"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                                 </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
+
+                                                <!-- Chart with Axes -->
+                                                <Grid Visibility="{x:Bind ViewModel.ShapeTypeChartData.Count, Mode=OneWay, Converter={StaticResource IntToVisibilityConverter}}">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="*"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <!-- Chart Area with Axes -->
+                                                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="*"/>
+                                                            <RowDefinition Height="30"/>
+                                                        </Grid.RowDefinitions>
+
+                                                        <!-- Y-Axis -->
+                                                        <Grid Grid.Column="0" Grid.Row="0" Margin="0,0,8,0">
+                                                            <!-- Y-Axis Line -->
+                                                            <Line 
+                                                                X1="42" Y1="0" 
+                                                                X2="42" Y2="240"
+                                                                Stroke="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                                StrokeThickness="2"
+                                                                HorizontalAlignment="Right"/>
+                                                            
+                                                            <!-- Y-Axis Labels -->
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                </Grid.RowDefinitions>
+
+                                                                <TextBlock 
+                                                                    Grid.Row="0"
+                                                                    Text="{x:Bind ViewModel.ShapeTypeChartData[0].Value, Mode=OneWay, FallbackValue='100'}"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    HorizontalAlignment="Right"
+                                                                    VerticalAlignment="Top"
+                                                                    Margin="0,0,8,0"/>
+                                                                
+                                                                <TextBlock 
+                                                                    Grid.Row="4"
+                                                                    Text="0"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    HorizontalAlignment="Right"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Margin="0,0,8,0"/>
+                                                            </Grid>
+                                                        </Grid>
+
+                                                        <!-- Chart Grid with Gridlines -->
+                                                        <Grid Grid.Column="1" Grid.Row="0">
+                                                            <!-- Horizontal Gridlines -->
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                </Grid.RowDefinitions>
+
+                                                                <Line Grid.Row="0" X1="0" Y1="0" X2="1000" Y2="0" 
+                                                                      Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                                                      StrokeThickness="1" 
+                                                                      StrokeDashArray="2,2"
+                                                                      Opacity="0.3"
+                                                                      Stretch="Fill"/>
+                                                                <Line Grid.Row="1" X1="0" Y1="0" X2="1000" Y2="0" 
+                                                                      Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                                                      StrokeThickness="1" 
+                                                                      StrokeDashArray="2,2"
+                                                                      Opacity="0.3"
+                                                                      Stretch="Fill"/>
+                                                                <Line Grid.Row="2" X1="0" Y1="0" X2="1000" Y2="0" 
+                                                                      Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                                                      StrokeThickness="1" 
+                                                                      StrokeDashArray="2,2"
+                                                                      Opacity="0.3"
+                                                                      Stretch="Fill"/>
+                                                                <Line Grid.Row="3" X1="0" Y1="0" X2="1000" Y2="0" 
+                                                                      Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                                                      StrokeThickness="1" 
+                                                                      StrokeDashArray="2,2"
+                                                                      Opacity="0.3"
+                                                                      Stretch="Fill"/>
+                                                            </Grid>
+
+                                                            <!-- Columns Container -->
+                                                            <ItemsControl ItemsSource="{x:Bind ViewModel.ShapeTypeChartData, Mode=OneWay}" 
+                                                                         VerticalAlignment="Bottom"
+                                                                         Margin="0,0,0,0">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="viewmodels:ChartDataItem">
+                                                                        <Grid Margin="12,0" Width="70" Height="240" VerticalAlignment="Bottom">
+                                                                            <!-- Column Bar with Shadow -->
+                                                                            <Border 
+                                                                                Height="{x:Bind Percentage, Mode=OneWay}"
+                                                                                MaxHeight="240"
+                                                                                VerticalAlignment="Bottom"
+                                                                                CornerRadius="6,6,0,0"
+                                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                                Padding="0,8,0,0">
+                                                                                <Border.Shadow>
+                                                                                    <ThemeShadow />
+                                                                                </Border.Shadow>
+                                                                                
+                                                                                <!-- Gradient Overlay -->
+                                                                                <Border.OpacityTransition>
+                                                                                    <ScalarTransition/>
+                                                                                </Border.OpacityTransition>
+                                                                                
+                                                                                <Grid>
+                                                                                    <!-- Value Label -->
+                                                                                    <TextBlock 
+                                                                                        Text="{x:Bind Value}"
+                                                                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                                                        Foreground="White"
+                                                                                        HorizontalAlignment="Center"
+                                                                                        VerticalAlignment="Top"
+                                                                                        FontSize="16"/>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </Grid>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </Grid>
+
+                                                        <!-- X-Axis -->
+                                                        <Grid Grid.Column="1" Grid.Row="1">
+                                                            <!-- X-Axis Line -->
+                                                            <Line 
+                                                                X1="0" Y1="0" 
+                                                                X2="1000" Y2="0"
+                                                                Stroke="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                                StrokeThickness="2"
+                                                                Stretch="Fill"
+                                                                VerticalAlignment="Top"/>
+                                                            
+                                                            <!-- X-Axis Labels -->
+                                                            <ItemsControl ItemsSource="{x:Bind ViewModel.ShapeTypeChartData, Mode=OneWay}" 
+                                                                         Margin="0,4,0,0">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="viewmodels:ChartDataItem">
+                                                                        <TextBlock 
+                                                                            Text="{x:Bind Label}"
+                                                                            Width="70"
+                                                                            Margin="12,0"
+                                                                            Style="{StaticResource BodyTextBlockStyle}"
+                                                                            FontWeight="SemiBold"
+                                                                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                                            HorizontalAlignment="Center"
+                                                                            TextAlignment="Center"
+                                                                            TextWrapping="NoWrap"
+                                                                            TextTrimming="CharacterEllipsis"/>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </Grid>
+                                                    </Grid>
+
+                                                    <!-- Legend -->
+                                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
+                                                        <Border 
+                                                            Background="{ThemeResource AccentFillColorDefaultBrush}" 
+                                                            Width="16" 
+                                                            Height="16" 
+                                                            CornerRadius="3"
+                                                            VerticalAlignment="Center">
+                                                            <Border.Shadow>
+                                                                <ThemeShadow />
+                                                            </Border.Shadow>
+                                                        </Border>
+                                                        <TextBlock 
+                                                            Text="Shape Count" 
+                                                            Style="{StaticResource BodyTextBlockStyle}"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Top 5 Templates - Bar Chart -->
+                                    <Border
+                                        Grid.Column="1"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="8,0,0,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="16">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="Top 5 Templates" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                                <TextBlock 
+                                                    Text="Most frequently used templates"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+
+                                            <!-- Bar Chart Placeholder -->
+                                            <Grid Height="300">
+                                                <StackPanel 
+                                                    VerticalAlignment="Center" 
+                                                    HorizontalAlignment="Center"
+                                                    Spacing="12"
+                                                    Visibility="{x:Bind ViewModel.TopTemplatesChartData.Count, Mode=OneWay, Converter={StaticResource IntToVisibilityInverseConverter}}">
+                                                    <FontIcon Glyph="&#xE8F1;" FontSize="48" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                                    <TextBlock 
+                                                        Text="No templates used yet" 
+                                                        Style="{StaticResource BodyTextBlockStyle}"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+
+                                                <!-- Bar Chart Data (Temporary) -->
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{x:Bind ViewModel.TopTemplatesChartData.Count, Mode=OneWay, Converter={StaticResource IntToVisibilityConverter}}">
+                                                    <ItemsControl ItemsSource="{x:Bind ViewModel.TopTemplatesChartData, Mode=OneWay}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="viewmodels:ChartDataItem">
+                                                                <StackPanel Margin="0,8,0,8">
+                                                                    <Grid Margin="0,0,0,4">
+                                                                        <TextBlock Text="{x:Bind Label}" Style="{StaticResource BodyTextBlockStyle}"/>
+                                                                        <TextBlock Text="{x:Bind Value}" Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalAlignment="Right" Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                                                    </Grid>
+                                                                    <ProgressBar 
+                                                                        Value="{x:Bind Value}" 
+                                                                        Maximum="100"
+                                                                        Height="8"
+                                                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Row 3: Additional Info Cards -->
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Most Used Shape Type -->
+                                    <Border
+                                        Grid.Column="0"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="0,0,8,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE76E;" FontSize="24" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Text="Most Used Shape" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.MostUsedShapeType, Mode=OneWay, FallbackValue='N/A'}" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                            <TextBlock Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                <Run Text="Used "/>
+                                                <Run Text="{x:Bind ViewModel.MostUsedShapeTypeCount, Mode=OneWay}"/>
+                                                <Run Text=" times"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Most Used Color -->
+                                    <Border
+                                        Grid.Column="1"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="4,0,4,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE790;" FontSize="24" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Text="Most Used Color" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                                <Border 
+                                                    Width="40" 
+                                                    Height="40" 
+                                                    CornerRadius="4"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                                    <Border.Background>
+                                                        <SolidColorBrush Color="{x:Bind ViewModel.MostUsedColor, Mode=OneWay, FallbackValue='#808080'}"/>
+                                                    </Border.Background>
+                                                </Border>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind ViewModel.MostUsedColor, Mode=OneWay, FallbackValue='N/A'}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                        <Run Text="Used "/>
+                                                        <Run Text="{x:Bind ViewModel.MostUsedColorCount, Mode=OneWay}"/>
+                                                        <Run Text=" times"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Activity Info -->
+                                    <Border
+                                        Grid.Column="2"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="20"
+                                        Margin="8,0,0,0">
+                                        <Border.Shadow>
+                                            <ThemeShadow />
+                                        </Border.Shadow>
+                                        <StackPanel Spacing="8">
+                                            <FontIcon Glyph="&#xE787;" FontSize="24" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Text="Activity" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.ActiveDays, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                            <TextBlock Text="Active Days" Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}">
+                                                <Run Text="Last activity: "/>
+                                                <Run Text="{x:Bind ViewModel.LastActivity, Mode=OneWay, FallbackValue='Never'}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabViewItem>
 
                 <TabViewItem Header="Canvases">
