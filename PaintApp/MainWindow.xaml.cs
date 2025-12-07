@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -16,6 +17,7 @@ using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Storage;
 using PaintApp.Views;
+using PaintApp.Services;
 
 namespace PaintApp
 {
@@ -25,18 +27,70 @@ namespace PaintApp
     public sealed partial class MainWindow : Window
     {
         private readonly ApplicationDataContainer _localSettings;
+        private readonly IProfileManager _profileManager;
+        private NavigationViewItem? _canvasNavItem;
 
         public MainWindow()
         {
             InitializeComponent();
             _localSettings = ApplicationData.Current.LocalSettings;
+            _profileManager = App.ServiceProvider.GetRequiredService<IProfileManager>();
             
             SetupCustomTitleBar();
             SetupBackdrop();
             LoadTheme();
             
+            // Subscribe to profile changes
+            _profileManager.CurrentProfileChanged += ProfileManager_CurrentProfileChanged;
+            
+            // Find Canvas nav item (already has x:Name in XAML)
+            _canvasNavItem = CanvasNavItem;
+            
+            UpdateCanvasNavItemState();
+            
             NavView.SelectedItem = NavView.MenuItems[0];
             ContentFrame.Navigate(typeof(HomePage));
+        }
+
+        private void ProfileManager_CurrentProfileChanged(object? sender, Models.Profile? profile)
+        {
+            // Update Canvas nav item when profile changes
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UpdateCanvasNavItemState();
+                System.Diagnostics.Debug.WriteLine($"MainWindow: Canvas nav item updated - HasProfile: {_profileManager.HasProfile()}");
+            });
+        }
+
+        private void UpdateCanvasNavItemState()
+        {
+            if (_canvasNavItem != null)
+            {
+                bool hasProfile = _profileManager.HasProfile();
+                
+                // Disable Canvas nav item if no profile selected
+                _canvasNavItem.IsEnabled = hasProfile;
+                
+                // Show/hide warning badge
+                if (CanvasRequiresProfileBadge != null)
+                {
+                    CanvasRequiresProfileBadge.Visibility = hasProfile 
+                        ? Visibility.Collapsed 
+                        : Visibility.Visible;
+                }
+                
+                // Update tooltip to show why it's disabled
+                if (!hasProfile)
+                {
+                    ToolTipService.SetToolTip(_canvasNavItem, 
+                        new ToolTip { Content = "Select a profile from Home page first" });
+                }
+                else
+                {
+                    ToolTipService.SetToolTip(_canvasNavItem, 
+                        new ToolTip { Content = "Draw and manage your canvas" });
+                }
+            }
         }
 
         private void SetupCustomTitleBar()
@@ -109,6 +163,26 @@ namespace PaintApp
             {
                 string tag = args.SelectedItemContainer.Tag?.ToString() ?? string.Empty;
                 
+                // Check profile before navigating to Canvas/DrawPage
+                if (tag == "Canvas")
+                {
+                    if (!_profileManager.HasProfile())
+                    {
+                        System.Diagnostics.Debug.WriteLine("MainWindow: Cannot navigate to Canvas - no profile selected");
+                        
+                        // Show error dialog
+                        _ = ShowNoProfileDialogAsync();
+                        
+                        // Navigate back to Home
+                        NavView.SelectedItem = NavView.MenuItems[0];
+                        if (ContentFrame.CurrentSourcePageType != typeof(HomePage))
+                        {
+                            ContentFrame.Navigate(typeof(HomePage));
+                        }
+                        return;
+                    }
+                }
+                
                 Type? pageType = tag switch
                 {
                     "Home" => typeof(HomePage),
@@ -119,8 +193,34 @@ namespace PaintApp
 
                 if (pageType != null && ContentFrame.CurrentSourcePageType != pageType)
                 {
+                    System.Diagnostics.Debug.WriteLine($"MainWindow: Navigating to {pageType.Name}");
                     ContentFrame.Navigate(pageType);
                 }
+            }
+        }
+
+        private async System.Threading.Tasks.Task ShowNoProfileDialogAsync()
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "No Profile Selected",
+                Content = "Please select a profile from the Home page before accessing the Canvas.\n\n" +
+                         "A profile is required to:\n" +
+                         "• Save your drawing preferences\n" +
+                         "• Store your canvas settings\n" +
+                         "• Manage your artwork",
+                PrimaryButtonText = "Go to Home",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.Content.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            
+            if (result == ContentDialogResult.Primary)
+            {
+                // User clicked "Go to Home" - already handled above
+                System.Diagnostics.Debug.WriteLine("MainWindow: User confirmed to go to Home page");
             }
         }
     }

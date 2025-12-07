@@ -16,6 +16,7 @@ public partial class ManagePageViewModel : ViewModelBase
     private readonly AppDbContext _dbContext;
     private readonly ICanvasService _canvasService;
     private readonly IShapeService _shapeService;
+    private readonly IProfileManager _profileManager;
 
     [ObservableProperty]
     private ObservableCollection<Profile> profiles = new();
@@ -56,11 +57,12 @@ public partial class ManagePageViewModel : ViewModelBase
     [ObservableProperty]
     private Microsoft.UI.Xaml.XamlRoot? xamlRoot;
 
-    public ManagePageViewModel(AppDbContext dbContext, ICanvasService canvasService, IShapeService shapeService)
+    public ManagePageViewModel(AppDbContext dbContext, ICanvasService canvasService, IShapeService shapeService, IProfileManager profileManager)
     {
         _dbContext = dbContext;
         _canvasService = canvasService;
         _shapeService = shapeService;
+        _profileManager = profileManager;
         _ = LoadDataAsync();
     }
 
@@ -81,6 +83,15 @@ public partial class ManagePageViewModel : ViewModelBase
         if (value != null)
         {
             _ = LoadCanvasesForProfileAsync(value.Id);
+        }
+        
+        // Sync with ProfileManager
+        if (value?.Id != _profileManager.CurrentProfile?.Id)
+        {
+            _profileManager.SetCurrentProfile(value);
+            System.Diagnostics.Debug.WriteLine(value != null
+                ? $"ManagePageViewModel: Profile '{value.Name}' synced to ProfileManager"
+                : "ManagePageViewModel: Profile cleared from ProfileManager");
         }
     }
 
@@ -103,8 +114,20 @@ public partial class ManagePageViewModel : ViewModelBase
         // Load total canvases
         TotalCanvases = await _dbContext.Canvases.CountAsync();
         
-        // Select first profile by default
-        if (Profiles.Count > 0)
+        // Restore current profile from ProfileManager or select first
+        if (_profileManager.CurrentProfile != null && Profiles.Any())
+        {
+            var currentProfile = Profiles.FirstOrDefault(p => p.Id == _profileManager.CurrentProfile.Id);
+            if (currentProfile != null)
+            {
+                SelectedProfile = currentProfile;
+            }
+            else if (Profiles.Count > 0)
+            {
+                SelectedProfile = Profiles[0];
+            }
+        }
+        else if (Profiles.Count > 0)
         {
             SelectedProfile = Profiles[0];
         }

@@ -50,6 +50,7 @@ namespace PaintApp
             });
             
             // Services
+            services.AddSingleton<IProfileManager, ProfileManager>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<ICanvasService, CanvasService>();
             services.AddScoped<IShapeService, ShapeService>();

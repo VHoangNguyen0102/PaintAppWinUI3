@@ -84,10 +84,19 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 
-                <NavigationViewItem Content="Canvas" Tag="Canvas">
+                <NavigationViewItem Content="Canvas" Tag="Canvas" x:Name="CanvasNavItem">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE70F;"/>
                     </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="CanvasRequiresProfileBadge" 
+                                   Style="{ThemeResource AttentionIconInfoBadgeStyle}"
+                                   Visibility="Collapsed">
+                            <InfoBadge.IconSource>
+                                <FontIconSource Glyph="&#xE7BA;" FontSize="12"/>
+                            </InfoBadge.IconSource>
+                        </InfoBadge>
+                    </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
                 
                 <NavigationViewItem Content="Profiles" Tag="Profiles">

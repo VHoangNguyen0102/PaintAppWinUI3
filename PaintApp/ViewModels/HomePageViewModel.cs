@@ -15,6 +15,7 @@ namespace PaintApp.ViewModels;
 public partial class HomePageViewModel : ViewModelBase
 {
     private readonly IProfileService _profileService;
+    private readonly IProfileManager _profileManager;
     private XamlRoot? _xamlRoot;
 
     [ObservableProperty]
@@ -32,9 +33,10 @@ public partial class HomePageViewModel : ViewModelBase
     [ObservableProperty]
     private bool isLoading;
 
-    public HomePageViewModel(IProfileService profileService)
+    public HomePageViewModel(IProfileService profileService, IProfileManager profileManager)
     {
         _profileService = profileService;
+        _profileManager = profileManager;
         _ = LoadProfilesAsync();
     }
 
@@ -46,6 +48,13 @@ public partial class HomePageViewModel : ViewModelBase
     partial void OnSelectedProfileChanged(Profile? value)
     {
         CanStartDrawing = value != null;
+        
+        // Update ProfileManager with current selection
+        _profileManager.SetCurrentProfile(value);
+        
+        System.Diagnostics.Debug.WriteLine(value != null
+            ? $"HomePageViewModel: Profile '{value.Name}' selected and set as current"
+            : "HomePageViewModel: Profile selection cleared");
     }
 
     private async Task LoadProfilesAsync()
@@ -64,6 +73,15 @@ public partial class HomePageViewModel : ViewModelBase
             if (Profiles.Any() && SelectedProfile == null)
             {
                 SelectedProfile = Profiles.First();
+            }
+            else if (Profiles.Any() && _profileManager.CurrentProfile != null)
+            {
+                // Restore previously selected profile if available
+                var currentProfile = Profiles.FirstOrDefault(p => p.Id == _profileManager.CurrentProfile.Id);
+                if (currentProfile != null)
+                {
+                    SelectedProfile = currentProfile;
+                }
             }
         }
         catch (Exception ex)
