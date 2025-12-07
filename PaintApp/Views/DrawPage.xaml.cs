@@ -1179,18 +1179,26 @@ public sealed partial class DrawPage : Page
     {
         base.OnNavigatedFrom(e);
         
-        // Save canvas state before navigating away
-        if (ViewModel.IsCanvasLoaded)
+        try
         {
-            System.Diagnostics.Debug.WriteLine($"DrawPage: Saving canvas state before navigation to {e.SourcePageType.Name}");
+            // Save canvas state before navigating away
+            if (ViewModel.IsCanvasLoaded)
+            {
+                System.Diagnostics.Debug.WriteLine($"DrawPage: Saving canvas state before navigation to {e.SourcePageType.Name}");
+                
+                // Auto-save will handle saving shapes
+                // Just log for debugging
+                System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas has {ViewModel.Shapes.Count} shapes");
+            }
             
-            // Auto-save will handle saving shapes
-            // Just log for debugging
-            System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas has {ViewModel.Shapes.Count} shapes");
+            // Stop auto-save timer when navigating away
+            ViewModel.StopAutoSave();
         }
-        
-        // Stop auto-save timer when navigating away
-        ViewModel.StopAutoSave();
+        catch (Exception ex)
+        {
+            // Log but don't throw - navigation should continue
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Error in OnNavigatedFrom: {ex.Message}");
+        }
     }
 
     private void ApplyProfileTheme(Profile profile)
