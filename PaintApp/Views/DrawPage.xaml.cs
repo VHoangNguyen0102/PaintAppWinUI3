@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI;
 using PaintApp.ViewModels;
 using PaintApp.Models;
+using PaintApp.Services;
 using PaintApp.Helpers;
 using Windows.Foundation;
 using Windows.UI;
@@ -1112,7 +1113,19 @@ public sealed partial class DrawPage : Page
         }
         else
         {
-            System.Diagnostics.Debug.WriteLine("DrawPage: No valid parameter provided");
+            System.Diagnostics.Debug.WriteLine("DrawPage: No parameter provided, checking ProfileManager");
+            
+            // Try to get profile from ProfileManager
+            var profileManager = App.ServiceProvider.GetRequiredService<IProfileManager>();
+            if (profileManager.CurrentProfile != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"DrawPage: Using profile from ProfileManager: '{profileManager.CurrentProfile.Name}' (ID: {profileManager.CurrentProfile.Id})");
+                ViewModel.SetProfile(profileManager.CurrentProfile);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("DrawPage: WARNING - No profile available in ProfileManager");
+            }
         }
     }
 

@@ -27,6 +27,7 @@ public partial class DrawPageViewModel : ViewModelBase
     private readonly ICanvasService _canvasService;
     private readonly IShapeService _shapeService;
     private readonly IProfileService _profileService;
+    private readonly IProfileManager _profileManager;
     private XamlRoot? _xamlRoot;
     private Profile? _currentProfile;
 
@@ -185,11 +186,12 @@ public partial class DrawPageViewModel : ViewModelBase
         Colors.Cyan
     };
 
-    public DrawPageViewModel(ICanvasService canvasService, IShapeService shapeService, IProfileService profileService)
+    public DrawPageViewModel(ICanvasService canvasService, IShapeService shapeService, IProfileService profileService, IProfileManager profileManager)
     {
         _canvasService = canvasService;
         _shapeService = shapeService;
         _profileService = profileService;
+        _profileManager = profileManager;
         
         InitializeAutoSave();
     }
@@ -636,15 +638,23 @@ public partial class DrawPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task NewCanvasAsync()
     {
-        if (_currentProfile == null)
+        // Try to get profile from _currentProfile or ProfileManager
+        var profile = _currentProfile ?? _profileManager.CurrentProfile;
+        
+        if (profile == null)
         {
-            await ShowErrorDialogAsync("Error", "Please select a profile first.");
+            System.Diagnostics.Debug.WriteLine("DrawPageViewModel: NewCanvas - No profile available");
+            await ShowErrorDialogAsync("Profile Required", 
+                "Please select a profile from the Home page first.\n\n" +
+                "A profile is required to create and save canvases.");
             return;
         }
 
+        System.Diagnostics.Debug.WriteLine($"DrawPageViewModel: NewCanvas - Using profile '{profile.Name}' (ID: {profile.Id})");
+
         try
         {
-            var dialog = new NewCanvasDialog(_currentProfile);
+            var dialog = new NewCanvasDialog(profile);
             dialog.XamlRoot = _xamlRoot;
 
             var result = await dialog.ShowAsync();
@@ -652,6 +662,13 @@ public partial class DrawPageViewModel : ViewModelBase
             if (result == ContentDialogResult.Primary && dialog.Canvas != null)
             {
                 var createdCanvas = await _canvasService.CreateCanvasAsync(dialog.Canvas);
+                
+                // Set profile if not already set
+                if (_currentProfile == null)
+                {
+                    SetProfile(profile);
+                }
+                
                 LoadCanvas(createdCanvas);
 
                 await ShowSuccessDialogAsync("Success", $"Canvas '{createdCanvas.Name}' created successfully!");

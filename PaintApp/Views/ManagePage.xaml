@@ -30,7 +30,7 @@
                 Text="Management Center"
                 Style="{StaticResource TitleLargeTextBlockStyle}"/>
             <TextBlock
-                Text="Manage profiles, drawings, and templates"
+                Text="Manage canvases and templates"
                 Style="{StaticResource BodyTextBlockStyle}"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
@@ -54,12 +54,88 @@
                     <Grid Padding="24">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,24">
+                        <!-- Profile Info Card -->
+                        <Border
+                            Grid.Row="0"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20"
+                            Margin="0,0,0,24">
+                            <Border.Shadow>
+                                <ThemeShadow />
+                            </Border.Shadow>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Profile Avatar -->
+                                <PersonPicture
+                                    Grid.Column="0"
+                                    Width="80"
+                                    Height="80"
+                                    Margin="0,0,20,0"/>
+
+                                <!-- Profile Details -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                                    <TextBlock
+                                        Text="Current Profile"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock
+                                        Text="{x:Bind ViewModel.SelectedProfile.Name, Mode=OneWay, FallbackValue='No Profile Selected'}"
+                                        Style="{StaticResource TitleTextBlockStyle}"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Default Canvas Size -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
+                                            <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                <Run Text="Canvas: "/>
+                                                <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasWidth, Mode=OneWay}"/>
+                                                <Run Text="×"/>
+                                                <Run Text="{x:Bind ViewModel.SelectedProfile.DefaultCanvasHeight, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <!-- Theme -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
+                                            <FontIcon Glyph="&#xE771;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                <Run Text="Theme: "/>
+                                                <Run Text="{x:Bind ViewModel.SelectedProfile.Theme, Mode=OneWay, FallbackValue='Default'}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <!-- Created Date -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE787;" FontSize="16" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                                                <Run Text="Created: "/>
+                                                <Run Text="{x:Bind ViewModel.SelectedProfile.CreatedAt, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Dashboard Stats -->
+                        <Grid Grid.Row="1" Margin="0,0,0,24">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -108,24 +184,6 @@
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Padding="24"
-                                Margin="4,0,4,0">
-                                <Border.Shadow>
-                                    <ThemeShadow />
-                                </Border.Shadow>
-                                <StackPanel Spacing="8">
-                                    <FontIcon Glyph="&#xE70F;" FontSize="32" Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
-                                    <TextBlock Text="Total Drawings" Style="{StaticResource BodyTextBlockStyle}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.TotalDrawings, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border
-                                Grid.Column="3"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="24"
                                 Margin="8,0,0,0">
                                 <Border.Shadow>
                                     <ThemeShadow />
@@ -138,7 +196,7 @@
                             </Border>
                         </Grid>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                             <StackPanel Spacing="16">
                                 <TextBlock Text="Recent Activity" Style="{StaticResource SubtitleTextBlockStyle}"/>
                                 <ListView
@@ -360,32 +418,6 @@
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
-                    </Grid>
-                </TabViewItem>
-
-                <TabViewItem Header="Drawings">
-                    <TabViewItem.IconSource>
-                        <SymbolIconSource Symbol="Pictures"/>
-                    </TabViewItem.IconSource>
-                    <Grid Padding="24">
-                        <StackPanel Spacing="16" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <FontIcon Glyph="&#xE70F;" FontSize="64" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock
-                                Text="Manage Drawings"
-                                Style="{StaticResource TitleTextBlockStyle}"
-                                TextAlignment="Center"/>
-                            <TextBlock
-                                Text="Drawing management features will appear here"
-                                Style="{StaticResource BodyTextBlockStyle}"
-                                TextAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <Button Style="{StaticResource AccentButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE710;" FontSize="16"/>
-                                    <TextBlock Text="Add New Drawing"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
                     </Grid>
                 </TabViewItem>
 
