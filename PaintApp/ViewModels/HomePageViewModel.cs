@@ -75,18 +75,20 @@ public partial class HomePageViewModel : ViewModelBase
                 Profiles.Add(profile);
             }
 
-            if (Profiles.Any() && SelectedProfile == null)
+            // Only restore previously selected profile from ProfileManager
+            // Do NOT auto-select first profile
+            if (Profiles.Any() && _profileManager.CurrentProfile != null)
             {
-                SelectedProfile = Profiles.First();
-            }
-            else if (Profiles.Any() && _profileManager.CurrentProfile != null)
-            {
-                // Restore previously selected profile if available
                 var currentProfile = Profiles.FirstOrDefault(p => p.Id == _profileManager.CurrentProfile.Id);
                 if (currentProfile != null)
                 {
                     SelectedProfile = currentProfile;
+                    System.Diagnostics.Debug.WriteLine($"HomePageViewModel: Restored profile '{currentProfile.Name}' from ProfileManager");
                 }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("HomePageViewModel: No profile auto-selected, user must choose");
             }
         }
         catch (Exception ex)

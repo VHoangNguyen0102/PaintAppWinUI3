@@ -112,7 +112,7 @@ public sealed partial class HomePage : Page
                 // Pass profile as navigation parameter
                 Frame.Navigate(typeof(DrawPage), ViewModel.SelectedProfile);
                 
-                System.Diagnostics.Debug.WriteLine("HomePage: Navigation successful");
+                System.Diagnostics.Debug.WriteLine("HomePage: Navigation successful - Frame will auto-update nav selection");
             }
             catch (Exception ex)
             {
