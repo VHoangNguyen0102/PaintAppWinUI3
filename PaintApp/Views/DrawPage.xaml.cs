@@ -1095,15 +1095,24 @@ public sealed partial class DrawPage : Page
     {
         base.OnNavigatedTo(e);
         
+        System.Diagnostics.Debug.WriteLine($"DrawPage: OnNavigatedTo called with parameter type: {e.Parameter?.GetType().Name ?? "null"}");
+        
         if (e.Parameter is Profile profile)
         {
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Loading with Profile '{profile.Name}' (ID: {profile.Id})");
             ViewModel.SetProfile(profile);
         }
         else if (e.Parameter is DrawPageNavigationParameter navParam)
         {
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Loading with Canvas '{navParam.Canvas.Name}' (ID: {navParam.Canvas.Id}) and Profile '{navParam.Profile.Name}' (ID: {navParam.Profile.Id})");
+            
             // Load canvas from ManagePage
             ViewModel.SetProfile(navParam.Profile);
             ViewModel.LoadCanvas(navParam.Canvas);
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("DrawPage: No valid parameter provided");
         }
     }
 

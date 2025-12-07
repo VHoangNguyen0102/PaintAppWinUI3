@@ -235,7 +235,8 @@
                                                 CornerRadius="8"
                                                 Width="280"
                                                 Margin="8"
-                                                Padding="16">
+                                                Padding="16"
+                                                DoubleTapped="CanvasCard_DoubleTapped">
                                                 <Border.Shadow>
                                                     <ThemeShadow />
                                                 </Border.Shadow>

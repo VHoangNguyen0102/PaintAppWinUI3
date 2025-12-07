@@ -286,6 +286,8 @@ public partial class DrawPageViewModel : ViewModelBase
 
     public async void LoadCanvas(CanvasModel canvas)
     {
+        System.Diagnostics.Debug.WriteLine($"DrawPageViewModel: LoadCanvas called for '{canvas.Name}' (ID: {canvas.Id})");
+        
         CurrentCanvas = canvas;
         IsCanvasLoaded = true;
         CanvasInfo = $"{canvas.Name} - {canvas.Width} × {canvas.Height}";
@@ -293,8 +295,12 @@ public partial class DrawPageViewModel : ViewModelBase
         CanvasHeight = canvas.Height;
         CanvasBackgroundColor = canvas.BackgroundColor;
         
+        System.Diagnostics.Debug.WriteLine($"DrawPageViewModel: Canvas settings applied - Size: {CanvasWidth}x{CanvasHeight}, Background: {CanvasBackgroundColor}");
+        
         // Load shapes from database
         await LoadShapesAsync(canvas.Id);
+        
+        System.Diagnostics.Debug.WriteLine($"DrawPageViewModel: Loaded {Shapes.Count} shapes for canvas");
         
         // Load templates
         await LoadTemplatesAsync();
@@ -303,6 +309,8 @@ public partial class DrawPageViewModel : ViewModelBase
         StartAutoSave();
         
         CanvasLoaded?.Invoke(this, canvas);
+        
+        System.Diagnostics.Debug.WriteLine("DrawPageViewModel: Canvas load complete, CanvasLoaded event fired");
     }
 
     private async Task LoadShapesAsync(int canvasId)

@@ -1,6 +1,8 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using PaintApp.ViewModels;
 using PaintApp.Models;
@@ -38,12 +40,56 @@ public sealed partial class ManagePage : Page
     {
         if (sender is Button button && button.Tag is CanvasModel canvas && ViewModel.SelectedProfile != null)
         {
-            // Navigate to DrawPage with canvas and profile
-            Frame.Navigate(typeof(DrawPage), new DrawPageNavigationParameter
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Opening canvas '{canvas.Name}' (ID: {canvas.Id}) with profile '{ViewModel.SelectedProfile.Name}' (ID: {ViewModel.SelectedProfile.Id})");
+            
+            try
             {
-                Canvas = canvas,
-                Profile = ViewModel.SelectedProfile
-            });
+                // Navigate to DrawPage with canvas and profile
+                Frame.Navigate(typeof(DrawPage), new DrawPageNavigationParameter
+                {
+                    Canvas = canvas,
+                    Profile = ViewModel.SelectedProfile
+                });
+                
+                System.Diagnostics.Debug.WriteLine("ManagePage: Navigation to DrawPage successful");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManagePage: Navigation error: {ex.Message}");
+            }
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("ManagePage: Cannot open canvas - missing canvas or profile");
+        }
+    }
+
+    private void CanvasCard_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        // Find the canvas from the sender's DataContext
+        if (sender is FrameworkElement element && element.DataContext is CanvasModel canvas && ViewModel.SelectedProfile != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Double-tapped canvas '{canvas.Name}' (ID: {canvas.Id})");
+            
+            try
+            {
+                // Navigate to DrawPage with canvas and profile
+                Frame.Navigate(typeof(DrawPage), new DrawPageNavigationParameter
+                {
+                    Canvas = canvas,
+                    Profile = ViewModel.SelectedProfile
+                });
+                
+                System.Diagnostics.Debug.WriteLine("ManagePage: Navigation to DrawPage successful");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManagePage: Navigation error: {ex.Message}");
+            }
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("ManagePage: Cannot open canvas from double-tap - missing canvas or profile");
         }
     }
 
