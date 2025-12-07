@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="PaintApp.Dialogs.ProfileDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Profile"
+    PrimaryButtonText="Save"
+    SecondaryButtonText="Cancel"
+    DefaultButton="Primary"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+    SecondaryButtonClick="ContentDialog_SecondaryButtonClick">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="600">
+        <StackPanel Spacing="16" Padding="4">
+            
+            <!-- Profile Name -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Profile Name" FontWeight="SemiBold"/>
+                <TextBox 
+                    x:Name="NameTextBox" 
+                    PlaceholderText="Enter profile name"
+                    TextChanged="NameTextBox_TextChanged"/>
+                <TextBlock 
+                    x:Name="NameErrorText" 
+                    Text="Profile name is required" 
+                    Foreground="Red" 
+                    Visibility="Collapsed"
+                    FontSize="12"/>
+            </StackPanel>
+
+            <!-- Avatar Path -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Avatar" FontWeight="SemiBold"/>
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBox 
+                        x:Name="AvatarPathTextBox" 
+                        Grid.Column="0"
+                        PlaceholderText="Avatar path (optional)"
+                        IsReadOnly="True"/>
+                    
+                    <Button 
+                        Grid.Column="1"
+                        Content="Browse"
+                        Click="BrowseAvatar_Click"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Theme -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Theme" FontWeight="SemiBold"/>
+                <ComboBox 
+                    x:Name="ThemeComboBox" 
+                    PlaceholderText="Select theme"
+                    HorizontalAlignment="Stretch"
+                    SelectedIndex="0">
+                    <ComboBoxItem Content="Light"/>
+                    <ComboBoxItem Content="Dark"/>
+                    <ComboBoxItem Content="System"/>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Canvas Size -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Default Canvas Size" FontWeight="SemiBold"/>
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="Width" FontSize="12" Foreground="Gray"/>
+                        <NumberBox 
+                            x:Name="CanvasWidthNumberBox"
+                            Value="800"
+                            Minimum="100"
+                            Maximum="5000"
+                            SpinButtonPlacementMode="Inline"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Height" FontSize="12" Foreground="Gray"/>
+                        <NumberBox 
+                            x:Name="CanvasHeightNumberBox"
+                            Value="600"
+                            Minimum="100"
+                            Maximum="5000"
+                            SpinButtonPlacementMode="Inline"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- Canvas Background Color -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Canvas Background Color" FontWeight="SemiBold"/>
+                <ColorPicker 
+                    x:Name="CanvasBackgroundColorPicker"
+                    ColorSpectrumShape="Ring"
+                    IsMoreButtonVisible="True"
+                    IsColorSliderVisible="True"
+                    IsColorChannelTextInputVisible="True"
+                    IsHexInputVisible="True"/>
+            </StackPanel>
+
+            <!-- Stroke Color -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Default Stroke Color" FontWeight="SemiBold"/>
+                <ColorPicker 
+                    x:Name="StrokeColorPicker"
+                    ColorSpectrumShape="Ring"
+                    IsMoreButtonVisible="True"
+                    IsColorSliderVisible="True"
+                    IsColorChannelTextInputVisible="True"
+                    IsHexInputVisible="True"/>
+            </StackPanel>
+
+            <!-- Fill Color -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Default Fill Color" FontWeight="SemiBold"/>
+                <ColorPicker 
+                    x:Name="FillColorPicker"
+                    ColorSpectrumShape="Ring"
+                    IsMoreButtonVisible="True"
+                    IsColorSliderVisible="True"
+                    IsColorChannelTextInputVisible="True"
+                    IsHexInputVisible="True"/>
+            </StackPanel>
+
+            <!-- Stroke Thickness -->
+            <StackPanel Spacing="8">
+                <Grid>
+                    <TextBlock Text="Default Stroke Thickness" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="StrokeThicknessValue" Text="2.0" HorizontalAlignment="Right" Foreground="Gray"/>
+                </Grid>
+                <Slider 
+                    x:Name="StrokeThicknessSlider"
+                    Minimum="0.5"
+                    Maximum="20"
+                    Value="2"
+                    StepFrequency="0.5"
+                    TickFrequency="1"
+                    TickPlacement="BottomRight"
+                    ValueChanged="StrokeThicknessSlider_ValueChanged"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>
