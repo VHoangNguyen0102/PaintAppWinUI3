@@ -69,11 +69,6 @@
 
             <AppBarSeparator/>
 
-            <AppBarButton Icon="Undo" Label="Undo" Command="{x:Bind ViewModel.UndoCommand}"/>
-            <AppBarButton Icon="Redo" Label="Redo" Command="{x:Bind ViewModel.RedoCommand}"/>
-
-            <AppBarSeparator/>
-
             <AppBarButton Icon="Delete" Label="Clear" Command="{x:Bind ViewModel.ClearCanvasCommand}"/>
             <AppBarButton Icon="Save" Label="Save" Command="{x:Bind ViewModel.SaveCommand}"/>
         </CommandBar>
@@ -342,8 +337,11 @@
                                         Height="24"
                                         CornerRadius="4"
                                         BorderThickness="2"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource SystemFillColorAttentionBrush}"/>
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="White"/>
+                                        </Border.Background>
+                                    </Border>
                                     <TextBlock 
                                         Text="Current Fill Color" 
                                         VerticalAlignment="Center"

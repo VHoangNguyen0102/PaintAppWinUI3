@@ -1104,6 +1104,24 @@ public sealed partial class DrawPage : Page
         
         System.Diagnostics.Debug.WriteLine($"DrawPage: OnNavigatedTo called with parameter type: {e.Parameter?.GetType().Name ?? "null"}");
         
+        // Check if we're returning to a previously loaded canvas (cache restoration)
+        if (e.Parameter == null && ViewModel.IsCanvasLoaded)
+        {
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Returning to existing canvas - restoring canvas state");
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas has {ViewModel.Shapes.Count} shapes");
+            
+            // Restore canvas visual properties
+            DrawingCanvas.Width = ViewModel.CanvasWidth;
+            DrawingCanvas.Height = ViewModel.CanvasHeight;
+            DrawingCanvas.Background = new SolidColorBrush(ParseColor(ViewModel.CanvasBackgroundColor));
+            
+            // Re-render shapes (in case UI was cleared)
+            RenderShapes();
+            
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas background restored to '{ViewModel.CanvasBackgroundColor}'");
+            return;
+        }
+        
         if (e.Parameter is Profile profile)
         {
             System.Diagnostics.Debug.WriteLine($"DrawPage: Loading with Profile '{profile.Name}' (ID: {profile.Id})");
@@ -1136,6 +1154,24 @@ public sealed partial class DrawPage : Page
                 System.Diagnostics.Debug.WriteLine("DrawPage: WARNING - No profile available in ProfileManager");
             }
         }
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        
+        // Save canvas state before navigating away
+        if (ViewModel.IsCanvasLoaded)
+        {
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Saving canvas state before navigation to {e.SourcePageType.Name}");
+            
+            // Auto-save will handle saving shapes
+            // Just log for debugging
+            System.Diagnostics.Debug.WriteLine($"DrawPage: Canvas has {ViewModel.Shapes.Count} shapes");
+        }
+        
+        // Stop auto-save timer when navigating away
+        ViewModel.StopAutoSave();
     }
 
     private void ApplyProfileTheme(Profile profile)

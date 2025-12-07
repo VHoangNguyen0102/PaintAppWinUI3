@@ -61,7 +61,7 @@ namespace PaintApp
             // ViewModels
             services.AddTransient<ViewModels.HomePageViewModel>();
             services.AddTransient<ViewModels.ManagePageViewModel>();
-            services.AddTransient<ViewModels.DrawPageViewModel>();
+            services.AddSingleton<ViewModels.DrawPageViewModel>(); // Changed to Singleton to preserve canvas state
             
             // Views/Windows
             services.AddTransient<MainWindow>();
