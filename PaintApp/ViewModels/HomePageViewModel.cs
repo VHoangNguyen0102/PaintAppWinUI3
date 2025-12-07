@@ -184,9 +184,18 @@ public partial class HomePageViewModel : ViewModelBase
     private bool CanEditOrDelete() => SelectedProfile != null;
 
     [RelayCommand(CanExecute = nameof(CanStartDrawing))]
-    private void StartDrawing()
+    private async Task StartDrawingAsync()
     {
-        // Navigation logic will be implemented later
+        if (SelectedProfile == null)
+        {
+            await ShowErrorDialogAsync("Error", "Please select a profile first.");
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"HomePageViewModel: StartDrawing command executed for profile '{SelectedProfile.Name}'");
+        
+        // Command execution logged - actual navigation is handled in code-behind
+        // because Frame navigation requires UI context
     }
 
     private async Task ShowSuccessDialogAsync(string title, string message)
