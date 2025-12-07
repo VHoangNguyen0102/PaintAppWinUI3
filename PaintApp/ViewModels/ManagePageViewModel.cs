@@ -298,8 +298,8 @@ public partial class ManagePageViewModel : ViewModelBase
             
             foreach (var item in shapeDistribution.OrderByDescending(x => x.Value).Take(6)) // Take top 6 shapes
             {
-                // Calculate height (scale to max 200px)
-                var scaledHeight = maxValue > 0 ? (item.Value * 200.0 / maxValue) : 0;
+                // Calculate height (scale to max 240px to match UI)
+                var scaledHeight = maxValue > 0 ? (item.Value * 240.0 / maxValue) : 0;
                 
                 ShapeTypeChartData.Add(new ChartDataItem
                 {

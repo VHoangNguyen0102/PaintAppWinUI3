@@ -318,9 +318,10 @@
                                                                     <RowDefinition Height="*"/>
                                                                 </Grid.RowDefinitions>
 
+                                                                <!-- Top label (Max) - Safe binding -->
                                                                 <TextBlock 
                                                                     Grid.Row="0"
-                                                                    Text="{x:Bind ViewModel.ShapeTypeChartData[0].Value, Mode=OneWay, FallbackValue='100'}"
+                                                                    Text="{x:Bind ViewModel.MostUsedShapeTypeCount, Mode=OneWay, FallbackValue='10'}"
                                                                     Style="{StaticResource CaptionTextBlockStyle}"
                                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                     HorizontalAlignment="Right"
