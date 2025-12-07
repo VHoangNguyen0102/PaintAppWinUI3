@@ -64,6 +64,7 @@ public sealed partial class DrawPage : Page
         ViewModel.ShapeCreated += ViewModel_ShapeCreated;
         ViewModel.ShapeUpdated += ViewModel_ShapeUpdated;
         ViewModel.ShapeDeleted += ViewModel_ShapeDeleted;
+        ViewModel.AllShapesCleared += ViewModel_AllShapesCleared;
     }
 
     private void DrawPage_Loaded(object sender, RoutedEventArgs e)
@@ -143,6 +144,24 @@ public sealed partial class DrawPage : Page
         // Clear selection UI
         ClearSelectionBorder();
         ClearResizeHandles();
+    }
+
+    private void ViewModel_AllShapesCleared(object? sender, EventArgs e)
+    {
+        // Clear all visual shapes from canvas
+        DrawingCanvas.Children.Clear();
+        
+        // Clear shape mapping
+        _shapeMap.Clear();
+        
+        // Clear selection UI
+        ClearSelectionBorder();
+        ClearResizeHandles();
+        
+        // Clear any temporary polygon drawing
+        ClearTemporaryPolygonDrawing();
+        
+        System.Diagnostics.Debug.WriteLine("DrawPage: All shapes cleared from UI");
     }
 
     private void RenderShapes()

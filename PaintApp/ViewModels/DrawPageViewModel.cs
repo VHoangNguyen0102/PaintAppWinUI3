@@ -132,6 +132,7 @@ public partial class DrawPageViewModel : ViewModelBase
     public event EventHandler<ShapeModel>? ShapeCreated;
     public event EventHandler<ShapeModel>? ShapeUpdated;
     public event EventHandler<ShapeModel>? ShapeDeleted;
+    public event EventHandler? AllShapesCleared;
 
     // Collections
     public ObservableCollection<ShapeModel> Shapes { get; } = new();
@@ -680,11 +681,6 @@ public partial class DrawPageViewModel : ViewModelBase
         {
             await ShowErrorDialogAsync("Create Canvas Error", $"Failed to create canvas: {ex.Message}");
         }
-    }
-
-    [RelayCommand]
-    private void ClearCanvas()
-    {
     }
 
     [RelayCommand]
@@ -1324,6 +1320,95 @@ public partial class DrawPageViewModel : ViewModelBase
                 await ShowErrorDialogAsync("Delete Template Error", 
                     $"Failed to delete template: {ex.Message}");
             }
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearCanvasAsync()
+    {
+        if (CurrentCanvas == null)
+        {
+            await ShowErrorDialogAsync("Error", "No canvas loaded.");
+            return;
+        }
+
+        if (Shapes.Count == 0)
+        {
+            await ShowErrorDialogAsync("Canvas Empty", "Canvas is already empty. No shapes to clear.");
+            return;
+        }
+
+        if (_xamlRoot == null) return;
+
+        // Show confirmation dialog
+        var dialog = new ContentDialog
+        {
+            Title = "Clear Canvas?",
+            Content = $"Are you sure you want to clear all shapes from the canvas?\n\n" +
+                     $"This will permanently delete {Shapes.Count} shape(s).\n\n" +
+                     $"?? This action cannot be undone.",
+            PrimaryButtonText = "Clear All",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = _xamlRoot
+        };
+
+        // Style the primary button as destructive
+        dialog.PrimaryButtonStyle = new Style(typeof(Button));
+        dialog.PrimaryButtonStyle.Setters.Add(new Setter(Button.BackgroundProperty, new SolidColorBrush(Microsoft.UI.Colors.Red)));
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"ClearCanvas: Clearing {Shapes.Count} shapes from canvas {CurrentCanvas.Id}");
+
+                var shapeCount = Shapes.Count;
+                
+                // Store shape IDs for database deletion
+                var shapeIdsToDelete = Shapes.Select(s => s.Id).ToList();
+                
+                // Clear UI collection first
+                Shapes.Clear();
+                
+                // Trigger event to clear UI visuals
+                AllShapesCleared?.Invoke(this, EventArgs.Empty);
+                
+                // Clear selection and polygon drawing
+                ClearSelection();
+                if (IsDrawingPolygon)
+                {
+                    ClearPolygonDrawing();
+                }
+
+                // Now delete from database in background
+                foreach (var shapeId in shapeIdsToDelete)
+                {
+                    await _shapeService.DeleteShapeAsync(shapeId);
+                }
+
+                // Mark as unsaved for auto-save
+                MarkAsUnsaved();
+
+                System.Diagnostics.Debug.WriteLine($"ClearCanvas: Successfully cleared {shapeCount} shapes");
+
+                await ShowSuccessDialogAsync("Canvas Cleared", 
+                    $"Successfully cleared {shapeCount} shape(s) from the canvas.\n\n" +
+                    $"Your canvas is now empty and ready for new drawings.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ClearCanvas ERROR: {ex.Message}");
+                await ShowErrorDialogAsync("Clear Canvas Error", 
+                    $"Failed to clear canvas: {ex.Message}\n\n" +
+                    $"Some shapes may not have been deleted.");
+            }
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("ClearCanvas: User cancelled operation");
         }
     }
 }
