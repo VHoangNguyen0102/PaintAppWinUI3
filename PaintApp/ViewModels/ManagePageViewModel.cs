@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,12 +15,16 @@ public partial class ManagePageViewModel : ViewModelBase
 {
     private readonly AppDbContext _dbContext;
     private readonly ICanvasService _canvasService;
+    private readonly IShapeService _shapeService;
 
     [ObservableProperty]
     private ObservableCollection<Profile> profiles = new();
 
     [ObservableProperty]
     private ObservableCollection<Canvas> canvases = new();
+
+    [ObservableProperty]
+    private ObservableCollection<Shape> templateShapes = new();
 
     [ObservableProperty]
     private Profile? selectedProfile;
@@ -46,12 +51,16 @@ public partial class ManagePageViewModel : ViewModelBase
     private bool isLoadingCanvases;
 
     [ObservableProperty]
+    private bool isLoadingTemplates;
+
+    [ObservableProperty]
     private Microsoft.UI.Xaml.XamlRoot? xamlRoot;
 
-    public ManagePageViewModel(AppDbContext dbContext, ICanvasService canvasService)
+    public ManagePageViewModel(AppDbContext dbContext, ICanvasService canvasService, IShapeService shapeService)
     {
         _dbContext = dbContext;
         _canvasService = canvasService;
+        _shapeService = shapeService;
         _ = LoadDataAsync();
     }
 
@@ -86,7 +95,10 @@ public partial class ManagePageViewModel : ViewModelBase
 
         TotalProfiles = profilesList.Count;
         TotalDrawings = 0;
-        TotalTemplates = 0;
+        
+        // Load templates
+        await LoadTemplatesAsync();
+        TotalTemplates = TemplateShapes.Count;
         
         // Load total canvases
         TotalCanvases = await _dbContext.Canvases.CountAsync();
@@ -95,6 +107,42 @@ public partial class ManagePageViewModel : ViewModelBase
         if (Profiles.Count > 0)
         {
             SelectedProfile = Profiles[0];
+        }
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        IsLoadingTemplates = true;
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("ManagePage: Loading templates...");
+            
+            var templates = await _shapeService.GetTemplateShapesAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Loaded {templates.Count} templates");
+            
+            // Remove duplicates
+            var uniqueTemplates = templates
+                .GroupBy(t => new { t.Type, t.GeometryData, t.StrokeColor, t.FillColor, t.StrokeThickness })
+                .Select(g => g.OrderByDescending(t => t.UsageCount).ThenBy(t => t.Id).First())
+                .ToList();
+            
+            TemplateShapes.Clear();
+            foreach (var template in uniqueTemplates)
+            {
+                TemplateShapes.Add(template);
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Showing {TemplateShapes.Count} unique templates");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Error loading templates: {ex.Message}");
+            await ShowErrorDialogAsync("Load Templates Error", $"Failed to load templates: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingTemplates = false;
         }
     }
 
@@ -129,6 +177,149 @@ public partial class ManagePageViewModel : ViewModelBase
         if (SelectedProfile != null)
         {
             await LoadCanvasesForProfileAsync(SelectedProfile.Id);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshTemplatesAsync()
+    {
+        await LoadTemplatesAsync();
+        TotalTemplates = TemplateShapes.Count;
+    }
+
+    [RelayCommand]
+    private async Task DeleteTemplateAsync(Shape? template)
+    {
+        if (template == null || XamlRoot == null)
+            return;
+
+        System.Diagnostics.Debug.WriteLine($"ManagePage: Deleting template {template.Type} (ID: {template.Id})");
+
+        // Show confirmation dialog
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            Title = "Delete Template?",
+            Content = $"Are you sure you want to delete the '{template.Type}' template?\n\n" +
+                     $"This template has been used {template.UsageCount} time(s).\n\n" +
+                     $"?? This action cannot be undone.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Close,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+
+        if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary)
+        {
+            IsLoadingTemplates = true;
+            try
+            {
+                var deleted = await _shapeService.DeleteShapeAsync(template.Id);
+
+                if (deleted)
+                {
+                    // Remove from collection
+                    TemplateShapes.Remove(template);
+                    
+                    // Update total count
+                    TotalTemplates--;
+
+                    System.Diagnostics.Debug.WriteLine($"ManagePage: Template {template.Id} deleted successfully");
+
+                    await ShowSuccessDialogAsync("Template Deleted", 
+                        $"Template '{template.Type}' has been deleted successfully.");
+                }
+                else
+                {
+                    await ShowErrorDialogAsync("Delete Failed", 
+                        "Template not found or could not be deleted.");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManagePage: Error deleting template: {ex.Message}");
+                await ShowErrorDialogAsync("Delete Error", 
+                    $"An error occurred while deleting the template:\n\n{ex.Message}");
+            }
+            finally
+            {
+                IsLoadingTemplates = false;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task CleanupDuplicateTemplatesAsync()
+    {
+        if (XamlRoot == null) return;
+
+        System.Diagnostics.Debug.WriteLine("ManagePage: Starting cleanup duplicates...");
+
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            Title = "Cleanup Duplicate Templates?",
+            Content = "This will remove duplicate templates from the database.\n\n" +
+                     "Templates with higher usage count will be kept.\n\n" +
+                     "Do you want to continue?",
+            PrimaryButtonText = "Cleanup",
+            CloseButtonText = "Cancel",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Close,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
+
+        IsLoadingTemplates = true;
+        try
+        {
+            var allTemplates = await _shapeService.GetTemplateShapesAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Found {allTemplates.Count} total templates");
+            
+            // Group by similarity
+            var groups = allTemplates
+                .GroupBy(t => new { t.Type, t.GeometryData, t.StrokeColor, t.FillColor, t.StrokeThickness })
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Found {groups.Count} groups with duplicates");
+
+            int deletedCount = 0;
+            foreach (var group in groups)
+            {
+                // Keep the one with highest usage or oldest
+                var toKeep = group.OrderByDescending(t => t.UsageCount).ThenBy(t => t.Id).First();
+                var toDelete = group.Where(t => t.Id != toKeep.Id).ToList();
+
+                System.Diagnostics.Debug.WriteLine($"ManagePage: Keeping template {toKeep.Id}, deleting {toDelete.Count} duplicates");
+
+                foreach (var template in toDelete)
+                {
+                    await _shapeService.DeleteShapeAsync(template.Id);
+                    deletedCount++;
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Cleanup complete, deleted {deletedCount} templates");
+
+            await LoadTemplatesAsync();
+            TotalTemplates = TemplateShapes.Count;
+
+            await ShowSuccessDialogAsync("Cleanup Complete", 
+                $"Removed {deletedCount} duplicate template(s).\n\n" +
+                $"You now have {TemplateShapes.Count} unique templates.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ManagePage: Cleanup error: {ex.Message}");
+            await ShowErrorDialogAsync("Cleanup Error", 
+                $"Failed to cleanup templates: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingTemplates = false;
         }
     }
 

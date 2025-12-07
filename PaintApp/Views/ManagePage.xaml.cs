@@ -3,8 +3,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using PaintApp.ViewModels;
+using PaintApp.Models;
 using CanvasModel = PaintApp.Models.Canvas;
 using ProfileModel = PaintApp.Models.Profile;
+using ShapeModel = PaintApp.Models.Shape;
 
 namespace PaintApp.Views;
 
@@ -50,6 +52,14 @@ public sealed partial class ManagePage : Page
         if (sender is Button button && button.Tag is CanvasModel canvas)
         {
             await ViewModel.DeleteCanvasCommand.ExecuteAsync(canvas);
+        }
+    }
+
+    private async void DeleteTemplateButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is ShapeModel template)
+        {
+            await ViewModel.DeleteTemplateCommand.ExecuteAsync(template);
         }
     }
 }

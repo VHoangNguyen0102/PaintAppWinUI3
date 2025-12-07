@@ -7,6 +7,7 @@
     xmlns:models="using:PaintApp.Models"
     xmlns:converters="using:PaintApp.Converters"
     xmlns:viewmodels="using:PaintApp.ViewModels"
+    xmlns:controls="using:PaintApp.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -389,27 +390,201 @@
 
                 <TabViewItem Header="Templates">
                     <TabViewItem.IconSource>
-                        <SymbolIconSource Symbol="Document"/>
+                        <FontIconSource Glyph="&#xE8F1;"/>
                     </TabViewItem.IconSource>
                     <Grid Padding="24">
-                        <StackPanel Spacing="16" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <FontIcon Glyph="&#xE8F1;" FontSize="64" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <TextBlock
-                                Text="Manage Templates"
-                                Style="{StaticResource TitleTextBlockStyle}"
-                                TextAlignment="Center"/>
-                            <TextBlock
-                                Text="Template management features will appear here"
-                                Style="{StaticResource BodyTextBlockStyle}"
-                                TextAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <Button Style="{StaticResource AccentButtonStyle}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Header with Refresh and Cleanup -->
+                        <Grid Grid.Row="0" Margin="0,0,0,24">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE8F1;" FontSize="24" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                <StackPanel>
+                                    <TextBlock Text="Template Library" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                    <TextBlock 
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                        <Run Text="Total: "/>
+                                        <Run Text="{x:Bind ViewModel.TemplateShapes.Count, Mode=OneWay}"/>
+                                        <Run Text=" templates"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Button
+                                Grid.Column="2"
+                                Command="{x:Bind ViewModel.RefreshTemplatesCommand}"
+                                Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE710;" FontSize="16"/>
-                                    <TextBlock Text="Add New Template"/>
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16"/>
+                                    <TextBlock Text="Refresh"/>
                                 </StackPanel>
                             </Button>
-                        </StackPanel>
+
+                            <Button
+                                Grid.Column="3"
+                                Command="{x:Bind ViewModel.CleanupDuplicateTemplatesCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE75C;" FontSize="16"/>
+                                    <TextBlock Text="Cleanup Duplicates"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Templates Grid -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
+                                <ProgressRing 
+                                    IsActive="{x:Bind ViewModel.IsLoadingTemplates, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.IsLoadingTemplates, Mode=OneWay}"
+                                    HorizontalAlignment="Center"
+                                    Width="50"
+                                    Height="50"/>
+
+                                <GridView
+                                    ItemsSource="{x:Bind ViewModel.TemplateShapes, Mode=OneWay}"
+                                    SelectionMode="None"
+                                    IsItemClickEnabled="False"
+                                    Padding="0"
+                                    Visibility="{x:Bind ViewModel.IsLoadingTemplates, Mode=OneWay, Converter={StaticResource BoolToVisibilityInverseConverter}}">
+                                    <GridView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsWrapGrid Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </GridView.ItemsPanel>
+                                    <GridView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:Shape">
+                                            <Border
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Width="240"
+                                                Margin="8"
+                                                Padding="16">
+                                                <Border.Shadow>
+                                                    <ThemeShadow />
+                                                </Border.Shadow>
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+
+                                                    <!-- Template Preview -->
+                                                    <Border
+                                                        Grid.Row="0"
+                                                        Background="White"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Height="120"
+                                                        Margin="0,0,0,12">
+                                                        <controls:ShapeThumbnailControl
+                                                            Shape="{x:Bind}"
+                                                            Width="120"
+                                                            Height="120"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"/>
+                                                    </Border>
+
+                                                    <!-- Template Info -->
+                                                    <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,12">
+                                                        <TextBlock 
+                                                            Text="{x:Bind Type}" 
+                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                            TextTrimming="CharacterEllipsis"
+                                                            MaxLines="1"/>
+                                                        <TextBlock 
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                            <Run Text="ID: "/>
+                                                            <Run Text="{x:Bind Id}"/>
+                                                        </TextBlock>
+                                                        <TextBlock 
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                            <Run Text="Size: "/>
+                                                            <Run Text="{x:Bind Width}"/>
+                                                            <Run Text=" × "/>
+                                                            <Run Text="{x:Bind Height}"/>
+                                                        </TextBlock>
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                            <FontIcon Glyph="&#xE76E;" FontSize="12" Foreground="{ThemeResource SystemFillColorSuccessBrush}"/>
+                                                            <TextBlock 
+                                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                                Foreground="{ThemeResource SystemFillColorSuccessBrush}">
+                                                                <Run Text="Used "/>
+                                                                <Run Text="{x:Bind UsageCount}"/>
+                                                                <Run Text=" times"/>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                        <TextBlock 
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                            FontSize="10">
+                                                            <Run Text="Created: "/>
+                                                            <Run Text="{x:Bind CreatedAt}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <!-- Action Button -->
+                                                    <Button
+                                                        Grid.Row="2"
+                                                        HorizontalAlignment="Stretch"
+                                                        Click="DeleteTemplateButton_Click"
+                                                        Tag="{x:Bind}">
+                                                        <Button.Resources>
+                                                            <SolidColorBrush x:Key="ButtonBackground" Color="#DC3545"/>
+                                                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#BB2D3B"/>
+                                                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#A02834"/>
+                                                            <SolidColorBrush x:Key="ButtonForeground" Color="White"/>
+                                                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White"/>
+                                                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White"/>
+                                                        </Button.Resources>
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon Glyph="&#xE74D;" FontSize="16"/>
+                                                            <TextBlock Text="Delete Template"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridView.ItemTemplate>
+                                </GridView>
+
+                                <!-- Empty State -->
+                                <StackPanel 
+                                    Spacing="16" 
+                                    VerticalAlignment="Center" 
+                                    HorizontalAlignment="Center"
+                                    Margin="0,40,0,0"
+                                    Visibility="{x:Bind ViewModel.TemplateShapes.Count, Mode=OneWay, Converter={StaticResource IntToVisibilityInverseConverter}}">
+                                    <FontIcon Glyph="&#xE8F1;" FontSize="64" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    <TextBlock
+                                        Text="No templates found"
+                                        Style="{StaticResource TitleTextBlockStyle}"
+                                        TextAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock
+                                        Text="Save shapes as templates from the Draw page"
+                                        Style="{StaticResource BodyTextBlockStyle}"
+                                        TextAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </TabViewItem>
             </TabView.TabItems>
